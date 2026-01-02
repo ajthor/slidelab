@@ -5,12 +5,16 @@ declare global {
     electronAPI?: {
       openNotebookDialog: () => Promise<string | null>
       openMarkdownDialog: () => Promise<string | null>
+      openThemeDialog: () => Promise<string | null>
       launchNotebook: (path: string) => Promise<{ url: string }>
       convertNotebook: (path: string) => Promise<{
         pdfUrl: string
         markdownPath: string
       }>
       watchNotebook: (path: string) => Promise<void>
+      getTheme: () => Promise<string>
+      loadTheme: (path: string) => Promise<string>
+      saveTheme: (content: string) => Promise<void>
       convertMarkdown: (path: string) => Promise<{ pdfUrl: string }>
       watchMarkdown: (path: string) => Promise<void>
       installPackages: (payload: {

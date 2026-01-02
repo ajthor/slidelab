@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import Editor from "@monaco-editor/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group"
+import {
   FolderOpen,
   Loader2,
   PackagePlus,
@@ -26,6 +31,7 @@ const EMPTY_NOTEBOOK_TITLE = "Open a notebook to begin"
 const EMPTY_PDF_TITLE = "PDF preview appears after notebook conversion"
 
 function App() {
+  const [leftMode, setLeftMode] = useState<"notebook" | "theme">("notebook")
   const [notebookPath, setNotebookPath] = useState<string | null>(null)
   const [jupyterUrl, setJupyterUrl] = useState<string | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
@@ -42,6 +48,9 @@ function App() {
   const [packageInput, setPackageInput] = useState("")
   const [installedPackages, setInstalledPackages] = useState<string[]>([])
   const [packageStatus, setPackageStatus] = useState<string | null>(null)
+  const [themeContent, setThemeContent] = useState("")
+  const themeLoadedRef = useRef(false)
+  const themeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -52,6 +61,40 @@ function App() {
     })
     return () => remove?.()
   }, [])
+
+  useEffect(() => {
+    if (!window.electronAPI) return
+    const loadTheme = async () => {
+      try {
+        const content = await window.electronAPI.getTheme()
+        setThemeContent(content)
+        themeLoadedRef.current = true
+      } catch {
+        themeLoadedRef.current = true
+      }
+    }
+    void loadTheme()
+  }, [])
+
+  useEffect(() => {
+    if (!window.electronAPI) return
+    if (!themeLoadedRef.current) return
+    if (themeSaveTimer.current) {
+      clearTimeout(themeSaveTimer.current)
+    }
+    themeSaveTimer.current = setTimeout(async () => {
+      try {
+        await window.electronAPI.saveTheme(themeContent)
+      } catch {
+        // Status updates are emitted from the main process.
+      }
+    }, 700)
+    return () => {
+      if (themeSaveTimer.current) {
+        clearTimeout(themeSaveTimer.current)
+      }
+    }
+  }, [themeContent])
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -103,6 +146,18 @@ function App() {
     }
   }
 
+  const handleLoadTheme = async () => {
+    if (!window.electronAPI) return
+    const selected = await window.electronAPI.openThemeDialog()
+    if (!selected) return
+    try {
+      const content = await window.electronAPI.loadTheme(selected)
+      setThemeContent(content)
+    } catch {
+      // Status updates are emitted from the main process.
+    }
+  }
+
   const handleConvert = async () => {
     if (!window.electronAPI || !notebookPath) return
     setIsConverting(true)
@@ -143,6 +198,31 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={leftMode}
+              onValueChange={(value) => {
+                if (value) setLeftMode(value as "notebook" | "theme")
+              }}
+              className="rounded-full border border-border/60 bg-background/80 p-1"
+            >
+              <ToggleGroupItem
+                value="notebook"
+                aria-label="Notebook"
+                data-testid="toggle-notebook"
+                className="rounded-full px-3 text-xs"
+              >
+                Notebook
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="theme"
+                aria-label="Theme CSS"
+                data-testid="toggle-theme"
+                className="rounded-full px-3 text-xs"
+              >
+                Theme CSS
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -150,6 +230,7 @@ function App() {
                   size="sm"
                   onClick={handleOpenNotebook}
                   disabled={isStartingNotebook}
+                  data-testid="open-notebook"
                 >
                   {isStartingNotebook ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -167,6 +248,7 @@ function App() {
                   size="sm"
                   onClick={handleConvert}
                   disabled={!notebookPath || isConverting}
+                  data-testid="rebuild-pdf"
                 >
                   {isConverting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -183,6 +265,7 @@ function App() {
               size="sm"
               onClick={() => setPackagesOpen(true)}
               disabled={!notebookPath}
+              data-testid="open-packages"
             >
               <PackagePlus className="mr-2 h-4 w-4" />
               Packages
@@ -194,16 +277,46 @@ function App() {
           <ResizablePanelGroup direction="horizontal" className="h-full w-full">
             <ResizablePanel defaultSize={60} minSize={35}>
               <div className="flex h-full flex-col bg-background">
-                {jupyterUrl ? (
-                  <webview
-                    className="h-full w-full"
-                    src={jupyterUrl}
-                    allowpopups="true"
-                    data-testid="notebook-view"
-                  />
+                {leftMode === "notebook" ? (
+                  jupyterUrl ? (
+                    <webview
+                      className="h-full w-full"
+                      src={jupyterUrl}
+                      allowpopups="true"
+                      data-testid="notebook-view"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+                      {EMPTY_NOTEBOOK_TITLE}
+                    </div>
+                  )
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-muted/30 text-sm text-muted-foreground">
-                    {EMPTY_NOTEBOOK_TITLE}
+                  <div className="flex h-full flex-col" data-testid="theme-editor">
+                    <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+                      <span>Marp theme stylesheet (auto-applies on save)</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleLoadTheme}
+                        data-testid="load-theme"
+                      >
+                        Load CSS
+                      </Button>
+                    </div>
+                    <div className="min-h-0 flex-1">
+                      <Editor
+                        value={themeContent}
+                        onChange={(value) => setThemeContent(value ?? "")}
+                        language="css"
+                        theme="vs-light"
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 12,
+                          wordWrap: "on",
+                          padding: { top: 12, bottom: 12 },
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -235,6 +348,7 @@ function App() {
                 ? "translate-y-0 opacity-100"
                 : "translate-y-3 opacity-0"
             }`}
+            data-testid="status-toast"
           >
             {(isStartingNotebook || isConverting) && (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />

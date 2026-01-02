@@ -1,17 +1,20 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron"
 import { spawn } from "node:child_process"
-import crypto from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import http from "node:http"
 import net from "node:net"
 import { pathToFileURL } from "node:url"
+import { hashPath } from "./utils/hash"
+import { defaultThemeCss } from "./utils/theme"
 
 const useDevServer = !app.isPackaged && process.env.ELECTRON_USE_DEV_SERVER !== "0"
 const appRoot = app.getAppPath()
-const userDataDir = app.getPath("userData")
-const venvRoot = path.join(userDataDir, "venvs")
-const marpOutputDir = path.join(userDataDir, "marp")
+let userDataDir = ""
+let venvRoot = ""
+let marpOutputDir = ""
+let themeDir = ""
+let themePath = ""
 const isMock = process.env.E2E_MOCK === "1"
 
 let mainWindow: BrowserWindow | null = null
@@ -21,17 +24,36 @@ const marpTimers = new Map<string, NodeJS.Timeout>()
 const notebookWatchers = new Map<string, fs.FSWatcher>()
 const notebookTimers = new Map<string, NodeJS.Timeout>()
 const notebookConversionLocks = new Map<string, boolean>()
+let activeNotebookPath: string | null = null
+let themeTimer: NodeJS.Timeout | null = null
 
 const ensureDir = async (dir: string) => {
   await fs.promises.mkdir(dir, { recursive: true })
 }
 
+const initPaths = () => {
+  const override = process.env.E2E_USER_DATA_DIR
+  if (override) {
+    app.setPath("userData", override)
+  }
+  userDataDir = app.getPath("userData")
+  venvRoot = path.join(userDataDir, "venvs")
+  marpOutputDir = path.join(userDataDir, "marp")
+  themeDir = path.join(userDataDir, "themes")
+  themePath = path.join(themeDir, "studio-theme.css")
+}
+
 const sendStatus = (message: string, level: "info" | "success" | "error" = "info") => {
   mainWindow?.webContents.send("status:update", { message, level })
 }
-
-const hashPath = (value: string) =>
-  crypto.createHash("sha256").update(value).digest("hex").slice(0, 16)
+const ensureThemeFile = async () => {
+  if (!userDataDir) initPaths()
+  await ensureDir(themeDir)
+  if (!fs.existsSync(themePath)) {
+    await fs.promises.writeFile(themePath, defaultThemeCss)
+  }
+  return themePath
+}
 
 const resolveBundledPython = () => {
   if (process.env.PYTHON_PATH) {
@@ -61,6 +83,9 @@ const resolveMarpBin = () => {
   }
   return path.join(appRoot, "node_modules", ".bin", "marp")
 }
+
+const resolveConverterScript = () =>
+  path.join(appRoot, "resources", "scripts", "convert_to_slides.py")
 
 const resolveFixturePath = (fileName: string) =>
   path.join(appRoot, "resources", "fixtures", fileName)
@@ -140,20 +165,13 @@ const ensureVenv = async (notebookPath: string) => {
   }
   const pipPath = path.join(venvDir, "bin", "pip")
   const jupyterMarker = path.join(venvDir, ".jupyterlab-installed")
-  const nbconvertBinary = path.join(venvDir, "bin", "jupyter-nbconvert")
   if (!fs.existsSync(jupyterMarker)) {
-    sendStatus("Installing JupyterLab + nbconvert...", "info")
-    await runCommand(pipPath, ["install", "jupyterlab", "nbconvert"], {
-      label: "pip install jupyterlab nbconvert",
+    sendStatus("Installing JupyterLab...", "info")
+    await runCommand(pipPath, ["install", "jupyterlab"], {
+      label: "pip install jupyterlab",
       timeoutMs: 10 * 60 * 1000,
     })
     await fs.promises.writeFile(jupyterMarker, "ok")
-  } else if (!fs.existsSync(nbconvertBinary)) {
-    sendStatus("Installing nbconvert...", "info")
-    await runCommand(pipPath, ["install", "nbconvert"], {
-      label: "pip install nbconvert",
-      timeoutMs: 10 * 60 * 1000,
-    })
   }
   return { venvDir, pipPath }
 }
@@ -230,6 +248,7 @@ const convertMarkdown = async (markdownPath: string) => {
     sendStatus("Mock Marp PDF ready.", "success")
     return { pdfUrl }
   }
+  await ensureThemeFile()
   await ensureDir(marpOutputDir)
   const outputPath = path.join(marpOutputDir, `${hashPath(markdownPath)}.pdf`)
   const marpBin = resolveMarpBin()
@@ -239,6 +258,8 @@ const convertMarkdown = async (markdownPath: string) => {
     [
       "--pdf",
       "--allow-local-files",
+      "--theme",
+      themePath,
       "--browser-timeout",
       "60",
       "-o",
@@ -260,18 +281,13 @@ const convertNotebookToMarkdown = async (notebookPath: string) => {
   const { venvDir } = await ensureVenv(notebookPath)
   const python = path.join(venvDir, "bin", "python")
   const outputBase = `notebook-${hashPath(notebookPath)}`
-  sendStatus("Converting notebook to Markdown...", "info")
-  await runCommand(python, [
-    "-m",
-    "nbconvert",
-    "--to",
-    "markdown",
-    "--output",
-    outputBase,
-    "--output-dir",
-    marpOutputDir,
-    notebookPath,
-  ], { label: "nbconvert", timeoutMs: 2 * 60 * 1000 })
+  const converterScript = resolveConverterScript()
+  sendStatus("Converting notebook to slides markdown...", "info")
+  await runCommand(
+    python,
+    [converterScript, notebookPath, path.join(marpOutputDir, `${outputBase}.md`)],
+    { label: "convert_to_slides.py", timeoutMs: 2 * 60 * 1000 }
+  )
   sendStatus("Notebook converted to Markdown.", "success")
   return path.join(marpOutputDir, `${outputBase}.md`)
 }
@@ -353,8 +369,10 @@ const stopMarpWatchers = () => {
 }
 
 const createWindow = async () => {
+  if (!userDataDir) initPaths()
   await ensureDir(venvRoot)
   await ensureDir(marpOutputDir)
+  await ensureThemeFile()
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -377,6 +395,7 @@ const createWindow = async () => {
 }
 
 app.whenReady().then(async () => {
+  initPaths()
   await createWindow()
 
   app.on("activate", () => {
@@ -397,9 +416,24 @@ ipcMain.handle("dialog:openNotebook", async () => {
   if (isMock) {
     return resolveFixturePath("sample.ipynb")
   }
+  if (process.env.E2E_NOTEBOOK_PATH && fs.existsSync(process.env.E2E_NOTEBOOK_PATH)) {
+    return process.env.E2E_NOTEBOOK_PATH
+  }
   const result = await dialog.showOpenDialog({
     properties: ["openFile"],
     filters: [{ name: "Notebooks", extensions: ["ipynb"] }],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle("dialog:openTheme", async () => {
+  if (process.env.E2E_THEME_PATH && fs.existsSync(process.env.E2E_THEME_PATH)) {
+    return process.env.E2E_THEME_PATH
+  }
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "CSS", extensions: ["css"] }],
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return result.filePaths[0]
@@ -419,6 +453,7 @@ ipcMain.handle("dialog:openMarkdown", async () => {
 
 ipcMain.handle("jupyter:openNotebook", async (_event, notebookPath: string) => {
   try {
+    activeNotebookPath = notebookPath
     const response = await startJupyter(notebookPath)
     return response
   } catch (error) {
@@ -429,6 +464,7 @@ ipcMain.handle("jupyter:openNotebook", async (_event, notebookPath: string) => {
 
 ipcMain.handle("notebook:convert", async (_event, notebookPath: string) => {
   try {
+    activeNotebookPath = notebookPath
     const payload = await convertNotebookPipeline(notebookPath)
     if (!payload) {
       throw new Error("Notebook conversion already in progress")
@@ -440,6 +476,50 @@ ipcMain.handle("notebook:convert", async (_event, notebookPath: string) => {
     sendStatus(message, "error")
     throw error
   }
+})
+
+ipcMain.handle("theme:get", async () => {
+  await ensureThemeFile()
+  return fs.promises.readFile(themePath, "utf8")
+})
+
+ipcMain.handle("theme:load", async (_event, filePath: string) => {
+  const content = await fs.promises.readFile(filePath, "utf8")
+  await ensureThemeFile()
+  await fs.promises.writeFile(themePath, content)
+  sendStatus("Theme loaded from file.", "success")
+  if (activeNotebookPath) {
+    const payload = await convertNotebookPipeline(activeNotebookPath)
+    if (payload) {
+      mainWindow?.webContents.send("marp:updated", payload)
+    }
+  }
+  return content
+})
+
+ipcMain.handle("theme:save", async (_event, content: string) => {
+  await ensureThemeFile()
+  await fs.promises.writeFile(themePath, content)
+  sendStatus("Theme updated.", "success")
+  if (!activeNotebookPath) return
+  if (themeTimer) {
+    clearTimeout(themeTimer)
+  }
+  themeTimer = setTimeout(async () => {
+    themeTimer = null
+    try {
+      const notebookPath = activeNotebookPath
+      if (!notebookPath) return
+      const payload = await convertNotebookPipeline(notebookPath)
+      if (payload) {
+        mainWindow?.webContents.send("marp:updated", payload)
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Theme conversion failed."
+      sendStatus(message, "error")
+    }
+  }, 600)
 })
 
 ipcMain.handle("notebook:watch", async (_event, notebookPath: string) => {

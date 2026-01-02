@@ -25,9 +25,18 @@ PYTHON_STANDALONE_URL="https://example.com/python.tar.gz" npm run setup:python
 
 ## Notebook to Marp
 
-When a notebook is opened, the app converts it to Markdown via `nbconvert` and
+When a notebook is opened, the app converts it to slides-friendly Markdown and
 then runs Marp to generate a PDF preview. Changes to the `.ipynb` file are
 watched and debounced before re-generating the PDF.
+
+Notebook conversion uses `resources/scripts/convert_to_slides.py` for the
+Markdown pipeline.
+
+## Theme editor
+
+Use the top bar toggle to switch the left panel to a CSS editor. The stylesheet
+is saved to the app's theme file and automatically applied to Marp conversions.
+Use "Load CSS" to import a theme file from disk.
 
 ## Marp (standalone)
 
@@ -48,3 +57,16 @@ npm run test:e2e
 
 The E2E tests run Electron in a mock mode (no Python/Jupyter/Marp) using
 fixtures in `resources/fixtures`.
+
+The real E2E test will run if `python3` is available (or `PYTHON_PATH` is set),
+and uses the fixture notebook to exercise the full conversion pipeline.
+
+```bash
+npm run test:unit
+```
+
+Run both suites with:
+
+```bash
+npm test
+```

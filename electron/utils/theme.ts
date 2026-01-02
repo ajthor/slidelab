@@ -1,0 +1,1 @@
+export const defaultThemeCss = `/* @theme studio */\n\nsection {\n  font-family: \"Space Grotesk\", \"Helvetica Neue\", Arial, sans-serif;\n  background: #fbf8f2;\n  color: #2b2218;\n}\n\nh1, h2, h3 {\n  font-weight: 700;\n  letter-spacing: 0.02em;\n}\n\nstrong {\n  color: #0f4c81;\n}\n`
