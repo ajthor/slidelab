@@ -75,3 +75,16 @@
       BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 }
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.titlebar {
+  height: 36px;
+  padding-top: 1px;
+}

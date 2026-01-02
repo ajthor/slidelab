@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename)
 export const repoRoot = path.resolve(__dirname, "../..")
 export const fixtureNotebook = path.join(repoRoot, "resources", "fixtures", "sample.ipynb")
 export const fixtureTheme = path.join(repoRoot, "resources", "fixtures", "theme.css")
+export const fixtureThemeSave = path.join(repoRoot, "resources", "fixtures", "theme-saved.css")
 
 export const launchApp = async (env: Record<string, string>) => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "slides-e2e-"))

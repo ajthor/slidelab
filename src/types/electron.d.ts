@@ -6,6 +6,8 @@ declare global {
       openNotebookDialog: () => Promise<string | null>
       openMarkdownDialog: () => Promise<string | null>
       openThemeDialog: () => Promise<string | null>
+      saveMarkdownDialog: () => Promise<string | null>
+      saveThemeDialog: () => Promise<string | null>
       launchNotebook: (path: string) => Promise<{ url: string }>
       convertNotebook: (path: string) => Promise<{
         pdfUrl: string
@@ -13,6 +15,11 @@ declare global {
       }>
       watchNotebook: (path: string) => Promise<void>
       getTheme: () => Promise<string>
+      getMarkdown: (path: string) => Promise<string>
+      saveMarkdown: (payload: {
+        filePath: string
+        content: string
+      }) => Promise<void>
       loadTheme: (path: string) => Promise<string>
       saveTheme: (content: string) => Promise<void>
       convertMarkdown: (path: string) => Promise<{ pdfUrl: string }>
@@ -26,6 +33,16 @@ declare global {
           level: "info" | "success" | "error"
         }) => void
       ) => (() => void) | void
+      onMenuOpenNotebook: (callback: () => void) => (() => void) | void
+      onMenuRebuildPdf: (callback: () => void) => (() => void) | void
+      onMenuLoadTheme: (callback: () => void) => (() => void) | void
+      onMenuSaveTheme: (callback: () => void) => (() => void) | void
+      onMenuSaveMarkdown: (callback: () => void) => (() => void) | void
+      setMenuState: (payload: {
+        hasNotebook: boolean
+        hasMarkdown: boolean
+        hasTheme: boolean
+      }) => Promise<void>
     }
   }
 }

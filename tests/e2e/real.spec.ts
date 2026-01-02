@@ -1,7 +1,13 @@
 import { execSync } from "node:child_process"
 import fs from "node:fs"
 import { expect, test } from "@playwright/test"
-import { expectPdfViewReady, fixtureNotebook, fixtureTheme, launchApp } from "./helpers"
+import {
+  expectPdfViewReady,
+  fixtureNotebook,
+  fixtureTheme,
+  fixtureThemeSave,
+  launchApp,
+} from "./helpers"
 
 const hasPython = () => {
   if (process.env.PYTHON_PATH) return true
@@ -22,6 +28,7 @@ test("real: open notebook converts to PDF", async () => {
   const { app, window } = await launchApp({
     E2E_NOTEBOOK_PATH: fixtureNotebook,
     E2E_THEME_PATH: fixtureTheme,
+    E2E_THEME_SAVE_PATH: fixtureThemeSave,
   })
   try {
     await window.getByTestId("open-notebook").click()
@@ -36,7 +43,10 @@ test("real: open notebook converts to PDF", async () => {
     await window.getByTestId("toggle-theme").click()
     await expect(window.getByTestId("theme-editor")).toBeVisible()
     await window.getByTestId("load-theme").click()
+    await window.getByTestId("save-theme").click()
     await window.getByTestId("toggle-notebook").click()
+    await window.getByTestId("toggle-markdown").click()
+    await expect(window.getByTestId("markdown-editor")).toBeVisible()
   } finally {
     await app.close()
   }

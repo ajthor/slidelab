@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron"
+import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron"
 import { spawn } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
@@ -394,9 +394,111 @@ const createWindow = async () => {
   }
 }
 
+const createMenu = (
+  state: {
+    hasNotebook: boolean
+    hasMarkdown: boolean
+    hasTheme: boolean
+  } = { hasNotebook: false, hasMarkdown: false, hasTheme: false }
+) => {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(app.isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open Notebook",
+          accelerator: "CmdOrCtrl+O",
+          click: () => mainWindow?.webContents.send("menu:openNotebook"),
+        },
+        { type: "separator" },
+        {
+          label: "Load Theme CSS",
+          enabled: state.hasNotebook,
+          click: () => mainWindow?.webContents.send("menu:loadTheme"),
+        },
+        {
+          label: "Save Theme CSS As...",
+          enabled: state.hasTheme,
+          click: () => mainWindow?.webContents.send("menu:saveTheme"),
+        },
+        {
+          label: "Save Markdown As...",
+          enabled: state.hasMarkdown,
+          click: () => mainWindow?.webContents.send("menu:saveMarkdown"),
+        },
+        { type: "separator" },
+        { role: "close" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Rebuild PDF",
+          accelerator: "CmdOrCtrl+R",
+          enabled: state.hasNotebook,
+          click: () => mainWindow?.webContents.send("menu:rebuildPdf"),
+        },
+        { role: "reload" },
+        { role: "toggledevtools" },
+        { type: "separator" },
+        { role: "resetzoom" },
+        { role: "zoomin" },
+        { role: "zoomout" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { type: "separator" },
+        { role: "front" },
+      ],
+    },
+    { role: "help" },
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
+
 app.whenReady().then(async () => {
   initPaths()
   await createWindow()
+  createMenu()
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -437,6 +539,27 @@ ipcMain.handle("dialog:openTheme", async () => {
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return result.filePaths[0]
+})
+
+ipcMain.handle("dialog:saveMarkdown", async () => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: "slides.md",
+    filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+  })
+  if (result.canceled || !result.filePath) return null
+  return result.filePath
+})
+
+ipcMain.handle("dialog:saveTheme", async () => {
+  if (process.env.E2E_THEME_SAVE_PATH) {
+    return process.env.E2E_THEME_SAVE_PATH
+  }
+  const result = await dialog.showSaveDialog({
+    defaultPath: "theme.css",
+    filters: [{ name: "CSS", extensions: ["css"] }],
+  })
+  if (result.canceled || !result.filePath) return null
+  return result.filePath
 })
 
 ipcMain.handle("dialog:openMarkdown", async () => {
@@ -483,6 +606,16 @@ ipcMain.handle("theme:get", async () => {
   return fs.promises.readFile(themePath, "utf8")
 })
 
+ipcMain.handle("markdown:get", async (_event, filePath: string) => {
+  return fs.promises.readFile(filePath, "utf8")
+})
+
+ipcMain.handle("markdown:save", async (_event, payload) => {
+  const { filePath, content } = payload as { filePath: string; content: string }
+  await fs.promises.writeFile(filePath, content)
+  sendStatus("Markdown saved.", "success")
+})
+
 ipcMain.handle("theme:load", async (_event, filePath: string) => {
   const content = await fs.promises.readFile(filePath, "utf8")
   await ensureThemeFile()
@@ -520,6 +653,10 @@ ipcMain.handle("theme:save", async (_event, content: string) => {
       sendStatus(message, "error")
     }
   }, 600)
+})
+
+ipcMain.handle("menu:setState", async (_event, payload) => {
+  createMenu(payload as { hasNotebook: boolean; hasMarkdown: boolean; hasTheme: boolean })
 })
 
 ipcMain.handle("notebook:watch", async (_event, notebookPath: string) => {

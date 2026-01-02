@@ -25,7 +25,7 @@ PYTHON_STANDALONE_URL="https://example.com/python.tar.gz" npm run setup:python
 
 ## Notebook to Marp
 
-When a notebook is opened, the app converts it to slides-friendly Markdown and
+When a notebook is opened (File → Open Notebook), the app converts it to slides-friendly Markdown and
 then runs Marp to generate a PDF preview. Changes to the `.ipynb` file are
 watched and debounced before re-generating the PDF.
 
@@ -36,7 +36,13 @@ Markdown pipeline.
 
 Use the top bar toggle to switch the left panel to a CSS editor. The stylesheet
 is saved to the app's theme file and automatically applied to Marp conversions.
-Use "Load CSS" to import a theme file from disk.
+Use "Load CSS" to import a theme file from disk and "Save as..." to export a copy.
+
+## Markdown editor
+
+The left panel can switch to a Markdown editor for the generated slides output.
+Edits auto-save and re-run the Marp conversion. Use “Save as…” to persist a
+separate Markdown file so notebook re-renders do not overwrite your edits.
 
 ## Marp (standalone)
 
