@@ -6,6 +6,7 @@ import http from "node:http"
 import net from "node:net"
 import { pathToFileURL } from "node:url"
 import { hashPath } from "./utils/hash"
+import { readSettings, writeSettings } from "./utils/settings"
 import { defaultThemeCss } from "./utils/theme"
 
 const useDevServer = !app.isPackaged && process.env.ELECTRON_USE_DEV_SERVER !== "0"
@@ -47,20 +48,9 @@ const initPaths = () => {
   jupyterConfigDir = path.join(userDataDir, "jupyter-config")
 }
 
-const readSettings = async () => {
-  try {
-    const raw = await fs.promises.readFile(settingsPath, "utf8")
-    return JSON.parse(raw) as { lastNotebook?: string }
-  } catch {
-    return {}
-  }
-}
-
-const writeSettings = async (partial: { lastNotebook?: string }) => {
-  const current = await readSettings()
-  const updated = { ...current, ...partial }
-  await fs.promises.writeFile(settingsPath, JSON.stringify(updated, null, 2))
-}
+const loadSettings = async () => readSettings(settingsPath)
+const saveSettings = async (partial: { lastNotebook?: string }) =>
+  writeSettings(settingsPath, partial)
 
 const sendStatus = (message: string, level: "info" | "success" | "error" = "info") => {
   mainWindow?.webContents.send("status:update", { message, level })
@@ -80,6 +70,7 @@ const ensureJupyterConfig = async () => {
   await ensureDir(labConfigDir)
   const configPath = path.join(labConfigDir, "page_config.json")
   const config = {
+    simpleMode: true,
     disabledExtensions: {
       "@jupyterlab/extensionmanager-extension": true,
       "@jupyterlab/launcher-extension": true,
@@ -226,7 +217,9 @@ const startJupyter = async (notebookPath: string) => {
   const notebookDir = path.dirname(notebookPath)
   const notebookName = path.basename(notebookPath)
   const notebookRelPath = path.relative(notebookDir, notebookPath) || notebookName
-  const defaultUrl = `/lab/tree/${encodeURIComponent(notebookRelPath)}`
+  const defaultUrl = `/lab/tree/${encodeURIComponent(
+    notebookRelPath
+  )}?simple=1&zen=1`
   const args = [
     "-m",
     "jupyterlab",
@@ -256,7 +249,7 @@ const startJupyter = async (notebookPath: string) => {
   })
 
   const url = `http://127.0.0.1:${port}${defaultUrl}`
-  await waitForHttp(url, 15000)
+  await waitForHttp(url, 30000)
   sendStatus("JupyterLab ready.", "success")
   return { url }
 }
@@ -454,21 +447,22 @@ const createMenu = (
     hasTheme: boolean
   } = { hasNotebook: false, hasMarkdown: false, hasTheme: false }
 ) => {
+  const isMac = process.platform === "darwin"
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(app.isMac
+    ...(isMac
       ? [
           {
             label: app.name,
             submenu: [
-              { role: "about" },
-              { type: "separator" },
-              { role: "services" },
-              { type: "separator" },
-              { role: "hide" },
-              { role: "hideOthers" },
-              { role: "unhide" },
-              { type: "separator" },
-              { role: "quit" },
+              { role: "about" as const },
+              { type: "separator" as const },
+              { role: "services" as const },
+              { type: "separator" as const },
+              { role: "hide" as const },
+              { role: "hideOthers" as const },
+              { role: "unhide" as const },
+              { type: "separator" as const },
+              { role: "quit" as const },
             ],
           },
         ]
@@ -481,7 +475,7 @@ const createMenu = (
           accelerator: "CmdOrCtrl+O",
           click: () => mainWindow?.webContents.send("menu:openNotebook"),
         },
-        { type: "separator" },
+        { type: "separator" as const },
         {
           label: "Load Theme CSS",
           enabled: state.hasNotebook,
@@ -497,20 +491,20 @@ const createMenu = (
           enabled: state.hasMarkdown,
           click: () => mainWindow?.webContents.send("menu:saveMarkdown"),
         },
-        { type: "separator" },
-        { role: "close" },
+        { type: "separator" as const },
+        { role: "close" as const },
       ],
     },
     {
       label: "Edit",
       submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "selectAll" },
+        { role: "undo" as const },
+        { role: "redo" as const },
+        { type: "separator" as const },
+        { role: "cut" as const },
+        { role: "copy" as const },
+        { role: "paste" as const },
+        { role: "selectAll" as const },
       ],
     },
     {
@@ -518,30 +512,28 @@ const createMenu = (
       submenu: [
         {
           label: "Rebuild PDF",
-          accelerator: "CmdOrCtrl+R",
+          accelerator: "CmdOrCtrl+Shift+R",
           enabled: state.hasNotebook,
           click: () => mainWindow?.webContents.send("menu:rebuildPdf"),
         },
-        { role: "reload" },
-        { role: "toggledevtools" },
-        { type: "separator" },
-        { role: "resetzoom" },
-        { role: "zoomin" },
-        { role: "zoomout" },
-        { type: "separator" },
-        { role: "togglefullscreen" },
+        { role: "reload" as const },
+        { role: "toggleDevTools" as const },
+        { type: "separator" as const },
+        { role: "resetZoom" as const },
+        { role: "zoomIn" as const },
+        { role: "zoomOut" as const },
       ],
     },
     {
       label: "Window",
       submenu: [
-        { role: "minimize" },
-        { role: "zoom" },
-        { type: "separator" },
-        { role: "front" },
+        { role: "minimize" as const },
+        { role: "zoom" as const },
+        { type: "separator" as const },
+        { role: "front" as const },
       ],
     },
-    { role: "help" },
+    { role: "help" as const },
   ]
 
   const menu = Menu.buildFromTemplate(template)
@@ -584,7 +576,7 @@ ipcMain.handle("dialog:openNotebook", async () => {
 
 ipcMain.handle("app:getLastNotebook", async () => {
   if (!userDataDir) initPaths()
-  const settings = await readSettings()
+  const settings = await loadSettings()
   if (settings.lastNotebook && fs.existsSync(settings.lastNotebook)) {
     return settings.lastNotebook
   }
@@ -593,7 +585,7 @@ ipcMain.handle("app:getLastNotebook", async () => {
 
 ipcMain.handle("app:setLastNotebook", async (_event, notebookPath: string | null) => {
   if (!userDataDir) initPaths()
-  await writeSettings({ lastNotebook: notebookPath ?? undefined })
+  await saveSettings({ lastNotebook: notebookPath ?? undefined })
 })
 
 ipcMain.handle("dialog:openTheme", async () => {
@@ -609,6 +601,9 @@ ipcMain.handle("dialog:openTheme", async () => {
 })
 
 ipcMain.handle("dialog:saveMarkdown", async () => {
+  if (process.env.E2E_MARKDOWN_SAVE_PATH) {
+    return process.env.E2E_MARKDOWN_SAVE_PATH
+  }
   const result = await dialog.showSaveDialog({
     defaultPath: "slides.md",
     filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],

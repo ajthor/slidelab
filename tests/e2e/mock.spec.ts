@@ -1,11 +1,18 @@
 import { expect, test } from "@playwright/test"
-import { expectPdfViewReady, fixtureTheme, fixtureThemeSave, launchApp } from "./helpers"
+import {
+  expectPdfViewReady,
+  fixtureMarkdownSave,
+  fixtureTheme,
+  fixtureThemeSave,
+  launchApp,
+} from "./helpers"
 
 test("mock: open notebook triggers PDF preview", async () => {
   const { app, window } = await launchApp({
     E2E_MOCK: "1",
     E2E_THEME_PATH: fixtureTheme,
     E2E_THEME_SAVE_PATH: fixtureThemeSave,
+    E2E_MARKDOWN_SAVE_PATH: fixtureMarkdownSave,
   })
   try {
     await expect(window.getByTestId("landing")).toBeVisible()
@@ -23,7 +30,10 @@ test("mock: open notebook triggers PDF preview", async () => {
 })
 
 test("mock: rebuild PDF and open packages tray", async () => {
-  const { app, window } = await launchApp({ E2E_MOCK: "1" })
+  const { app, window } = await launchApp({
+    E2E_MOCK: "1",
+    E2E_MARKDOWN_SAVE_PATH: fixtureMarkdownSave,
+  })
   try {
     await window.getByTestId("open-notebook").click()
     await expectPdfViewReady(window)
@@ -43,7 +53,32 @@ test("mock: rebuild PDF and open packages tray", async () => {
     await window.getByTestId("toggle-markdown").click()
     await expect(window.getByTestId("markdown-editor")).toBeVisible()
     await expect(window.getByTestId("save-markdown")).toBeVisible()
+    await window.getByTestId("save-markdown").click()
+    await expect(window.getByTestId("markdown-editor")).toContainText(
+      /Custom slides markdown/i
+    )
   } finally {
     await app.close()
+  }
+})
+
+test("mock: restores last notebook on relaunch", async () => {
+  const first = await launchApp({ E2E_MOCK: "1" })
+  try {
+    await first.window.getByTestId("open-notebook").click()
+    await expectPdfViewReady(first.window)
+  } finally {
+    await first.app.close()
+  }
+
+  const second = await launchApp(
+    { E2E_MOCK: "1" },
+    { userDataDir: first.userDataDir }
+  )
+  try {
+    await expect(second.window.getByTestId("landing")).toBeHidden()
+    await expect(second.window.getByTestId("notebook-view")).toBeVisible()
+  } finally {
+    await second.app.close()
   }
 })

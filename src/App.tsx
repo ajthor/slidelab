@@ -53,6 +53,7 @@ function App() {
   const [generatedMarkdownPath, setGeneratedMarkdownPath] = useState<
     string | null
   >(null)
+  const openNotebookRef = useRef<Promise<void> | null>(null)
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -177,38 +178,62 @@ function App() {
 
   const openNotebook = useCallback(async (path: string) => {
     if (!window.electronAPI) return
-    setNotebookPath(path)
-    setIsStartingNotebook(true)
-    try {
-      const response = await window.electronAPI.launchNotebook(path)
-      setJupyterUrl(response.url)
-      setIsConverting(true)
-      const marpResponse = await window.electronAPI.convertNotebook(path)
-      setPdfUrl(marpResponse.pdfUrl)
-      setPdfVersion(Date.now())
-      setGeneratedMarkdownPath(marpResponse.markdownPath)
-      if (!markdownOverride) {
-        setMarkdownPath(marpResponse.markdownPath)
-      }
-      window.electronAPI.setMenuState({
-        hasNotebook: true,
-        hasMarkdown: true,
-        hasTheme: themeLoaded,
-      })
-      window.electronAPI.setLastNotebook(path)
-      await window.electronAPI.watchNotebook(path)
-    } finally {
-      setIsStartingNotebook(false)
-      setIsConverting(false)
+    if (openNotebookRef.current) {
+      return openNotebookRef.current
     }
+    const task = (async () => {
+      setNotebookPath(path)
+      setIsStartingNotebook(true)
+      try {
+        const response = await window.electronAPI.launchNotebook(path)
+        setJupyterUrl(response.url)
+        setIsConverting(true)
+        try {
+          const marpResponse = await window.electronAPI.convertNotebook(path)
+          setPdfUrl(marpResponse.pdfUrl)
+          setPdfVersion(Date.now())
+          setGeneratedMarkdownPath(marpResponse.markdownPath)
+          if (!markdownOverride) {
+            setMarkdownPath(marpResponse.markdownPath)
+          }
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message.includes("conversion already in progress")
+          ) {
+            // Ignore duplicate conversions.
+          } else {
+            throw error
+          }
+        }
+        window.electronAPI.setMenuState({
+          hasNotebook: true,
+          hasMarkdown: true,
+          hasTheme: themeLoaded,
+        })
+        window.electronAPI.setLastNotebook(path)
+        await window.electronAPI.watchNotebook(path)
+      } finally {
+        setIsStartingNotebook(false)
+        setIsConverting(false)
+        openNotebookRef.current = null
+      }
+    })()
+    openNotebookRef.current = task
+    return task
   }, [markdownOverride, themeLoaded])
 
   const handleOpenNotebook = useCallback(async () => {
     if (!window.electronAPI) return
+    if (isStartingNotebook) return
     const selected = await window.electronAPI.openNotebookDialog()
     if (!selected) return
-    await openNotebook(selected)
-  }, [openNotebook])
+    try {
+      await openNotebook(selected)
+    } catch {
+      setStatusMessage("Failed to open notebook.")
+    }
+  }, [isStartingNotebook, openNotebook])
 
   const handleLoadTheme = useCallback(async () => {
     if (!window.electronAPI) return
@@ -272,6 +297,14 @@ function App() {
       const response = await window.electronAPI.convertNotebook(notebookPath)
       setPdfUrl(response.pdfUrl)
       setPdfVersion(Date.now())
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("conversion already in progress")
+      ) {
+        return
+      }
+      setStatusMessage("Failed to rebuild PDF.")
     } finally {
       setIsConverting(false)
     }
@@ -283,7 +316,11 @@ function App() {
       const last = await window.electronAPI.getLastNotebook()
       if (!last) return
       setStatusMessage("Restoring last notebook...")
-      await openNotebook(last)
+      try {
+        await openNotebook(last)
+      } catch {
+        setStatusMessage("Failed to restore last notebook.")
+      }
     }
     void restoreLastNotebook()
   }, [openNotebook])

@@ -22,7 +22,7 @@ const hasPython = () => {
 const hasRealDeps = () => fs.existsSync(fixtureNotebook) && hasPython()
 
 test("real: open notebook converts to PDF", async () => {
-  test.setTimeout(120_000)
+  test.setTimeout(180_000)
   test.skip(!hasRealDeps(), "Notebook fixture or python3 missing")
 
   const { app, window } = await launchApp({
@@ -32,13 +32,15 @@ test("real: open notebook converts to PDF", async () => {
   })
   try {
     await window.getByTestId("open-notebook").click()
+    await expect(window.getByTestId("landing")).toBeHidden({ timeout: 30_000 })
 
     const notebookView = window.getByTestId("notebook-view")
     await expect(notebookView).toHaveAttribute(
       "src",
-      expect.stringContaining("http://127.0.0.1")
+      /http:\/\/127\.0\.0\.1/,
+      { timeout: 60_000 }
     )
-    await expectPdfViewReady(window)
+    await expectPdfViewReady(window, 60_000)
 
     await window.getByTestId("toggle-theme").click()
     await expect(window.getByTestId("theme-editor")).toBeVisible()

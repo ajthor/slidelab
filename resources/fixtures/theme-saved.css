@@ -1,2 +1,16 @@
-/* @theme saved */
+/* @theme studio */
 
+section {
+  font-family: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  background: #fbf8f2;
+  color: #2b2218;
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+strong {
+  color: #0f4c81;
+}
