@@ -1,5 +1,7 @@
 # Slides Application
 
+Version: 0.1.0
+
 Electron + React/Vite desktop app for JupyterLab notebooks alongside Marp PDF preview.
 
 ## Development
@@ -21,6 +23,13 @@ You can override the download URL:
 
 ```bash
 PYTHON_STANDALONE_URL="https://example.com/python.tar.gz" npm run setup:python
+```
+
+Optional checks and fallbacks:
+
+```bash
+PYTHON_STANDALONE_SHA256="<sha256>" npm run setup:python
+PYTHON_STANDALONE_FALLBACKS="https://mirror1/python.tar.gz,https://mirror2/python.tar.gz" npm run setup:python
 ```
 
 ## Notebook to Marp
@@ -57,6 +66,11 @@ whenever the selected markdown file changes (debounced) or when you click Conver
 ```bash
 npm run build:electron
 ```
+
+## Releases
+
+Create a git tag like `0.1.0` (or `v0.1.0`) to trigger the GitHub Action
+release workflow and attach the macOS build artifacts.
 
 ## Tests
 

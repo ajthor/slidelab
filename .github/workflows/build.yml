@@ -1,14 +1,16 @@
-name: Build App
+name: Build
 
 on:
   workflow_dispatch:
   push:
     branches: ["main"]
-    tags: ["v*"]
+    tags: ["v*", "*.*.*"]
 
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      PYTHON_STANDALONE_URL: "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-macos-universal2-install_only.tar.gz"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,8 +24,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache Python runtime
+        uses: actions/cache@v4
+        with:
+          path: |
+            resources/python
+            resources/python.tar.gz
+          key: python-${{ runner.os }}-${{ env.PYTHON_STANDALONE_URL }}-${{ secrets.PYTHON_STANDALONE_SHA256 }}
+
       - name: Fetch bundled Python
         run: npm run setup:python
+        env:
+          PYTHON_STANDALONE_URL: ${{ env.PYTHON_STANDALONE_URL }}
+          PYTHON_STANDALONE_SHA256: ${{ secrets.PYTHON_STANDALONE_SHA256 }}
 
       - name: Build app
         run: npm run build:electron
