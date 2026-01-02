@@ -49,19 +49,28 @@ function App() {
   const markdownLoadedRef = useRef(false)
   const markdownSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [themeLoaded, setThemeLoaded] = useState(false)
+  const [markdownOverride, setMarkdownOverride] = useState(false)
+  const [generatedMarkdownPath, setGeneratedMarkdownPath] = useState<
+    string | null
+  >(null)
 
   useEffect(() => {
     if (!window.electronAPI) return
     const remove = window.electronAPI.onMarpUpdated((payload) => {
-      setPdfUrl(payload.pdfUrl)
-      setPdfVersion(Date.now())
+      if (!markdownOverride) {
+        setPdfUrl(payload.pdfUrl)
+        setPdfVersion(Date.now())
+      }
       setIsConverting(false)
       if (payload.markdownPath) {
-        setMarkdownPath(payload.markdownPath)
+        setGeneratedMarkdownPath(payload.markdownPath)
+        if (!markdownOverride) {
+          setMarkdownPath(payload.markdownPath)
+        }
       }
     })
     return () => remove?.()
-  }, [])
+  }, [markdownOverride])
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -166,31 +175,40 @@ function App() {
     return () => clearTimeout(timer)
   }, [isStartingNotebook, isConverting, statusSticky, statusVisible])
 
-  const handleOpenNotebook = useCallback(async () => {
+  const openNotebook = useCallback(async (path: string) => {
     if (!window.electronAPI) return
-    const selected = await window.electronAPI.openNotebookDialog()
-    if (!selected) return
-    setNotebookPath(selected)
+    setNotebookPath(path)
     setIsStartingNotebook(true)
     try {
-      const response = await window.electronAPI.launchNotebook(selected)
+      const response = await window.electronAPI.launchNotebook(path)
       setJupyterUrl(response.url)
       setIsConverting(true)
-      const marpResponse = await window.electronAPI.convertNotebook(selected)
+      const marpResponse = await window.electronAPI.convertNotebook(path)
       setPdfUrl(marpResponse.pdfUrl)
       setPdfVersion(Date.now())
-      setMarkdownPath(marpResponse.markdownPath)
+      setGeneratedMarkdownPath(marpResponse.markdownPath)
+      if (!markdownOverride) {
+        setMarkdownPath(marpResponse.markdownPath)
+      }
       window.electronAPI.setMenuState({
         hasNotebook: true,
         hasMarkdown: true,
         hasTheme: themeLoaded,
       })
-      await window.electronAPI.watchNotebook(selected)
+      window.electronAPI.setLastNotebook(path)
+      await window.electronAPI.watchNotebook(path)
     } finally {
       setIsStartingNotebook(false)
       setIsConverting(false)
     }
-  }, [])
+  }, [markdownOverride, themeLoaded])
+
+  const handleOpenNotebook = useCallback(async () => {
+    if (!window.electronAPI) return
+    const selected = await window.electronAPI.openNotebookDialog()
+    if (!selected) return
+    await openNotebook(selected)
+  }, [openNotebook])
 
   const handleLoadTheme = useCallback(async () => {
     if (!window.electronAPI) return
@@ -233,6 +251,7 @@ function App() {
         content: markdownContent,
       })
       setMarkdownPath(targetPath)
+      setMarkdownOverride(true)
       const response = await window.electronAPI.convertMarkdown(targetPath)
       setPdfUrl(response.pdfUrl)
       setPdfVersion(Date.now())
@@ -260,9 +279,20 @@ function App() {
 
   useEffect(() => {
     if (!window.electronAPI) return
+    const restoreLastNotebook = async () => {
+      const last = await window.electronAPI.getLastNotebook()
+      if (!last) return
+      setStatusMessage("Restoring last notebook...")
+      await openNotebook(last)
+    }
+    void restoreLastNotebook()
+  }, [openNotebook])
+
+  useEffect(() => {
+    if (!window.electronAPI) return
     window.electronAPI.setMenuState({
       hasNotebook: Boolean(notebookPath),
-      hasMarkdown: Boolean(markdownPath),
+      hasMarkdown: Boolean(markdownPath || generatedMarkdownPath),
       hasTheme: themeLoaded,
     })
     const removeOpen = window.electronAPI.onMenuOpenNotebook(handleOpenNotebook)
@@ -279,11 +309,15 @@ function App() {
       removeSaveMarkdown?.()
     }
   }, [
+    generatedMarkdownPath,
     handleConvert,
     handleLoadTheme,
     handleOpenNotebook,
     handleSaveMarkdownAs,
     handleSaveThemeAs,
+    markdownPath,
+    notebookPath,
+    themeLoaded,
   ])
 
   return (
@@ -351,7 +385,7 @@ function App() {
         </header>
 
         {!notebookPath ? (
-          <div className="flex flex-1 items-center justify-center bg-muted/10">
+          <div className="flex flex-1 items-center justify-center bg-muted/10" data-testid="landing">
             <div className="flex max-w-md flex-col items-center gap-4 text-center">
               <div className="text-lg font-semibold">Open a notebook</div>
               <div className="text-sm text-muted-foreground">
@@ -432,7 +466,11 @@ function App() {
                   ) : (
                     <div className="flex h-full flex-col" data-testid="markdown-editor">
                       <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
-                        <span>Generated slides markdown (auto-saves on edit)</span>
+                      <span>
+                        {markdownOverride
+                          ? "Custom slides markdown (auto-saves on edit)"
+                          : "Generated slides markdown (auto-saves on edit)"}
+                      </span>
                         <Button
                           variant="outline"
                           size="sm"

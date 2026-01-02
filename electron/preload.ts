@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openThemeDialog: () => ipcRenderer.invoke("dialog:openTheme"),
   saveMarkdownDialog: () => ipcRenderer.invoke("dialog:saveMarkdown"),
   saveThemeDialog: () => ipcRenderer.invoke("dialog:saveTheme"),
+  getLastNotebook: () => ipcRenderer.invoke("app:getLastNotebook"),
+  setLastNotebook: (path: string | null) =>
+    ipcRenderer.invoke("app:setLastNotebook", path),
   launchNotebook: (path: string) =>
     ipcRenderer.invoke("jupyter:openNotebook", path),
   convertNotebook: (path: string) =>

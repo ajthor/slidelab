@@ -15,6 +15,7 @@ let venvRoot = ""
 let marpOutputDir = ""
 let themeDir = ""
 let themePath = ""
+let settingsPath = ""
 const isMock = process.env.E2E_MOCK === "1"
 
 let mainWindow: BrowserWindow | null = null
@@ -41,6 +42,22 @@ const initPaths = () => {
   marpOutputDir = path.join(userDataDir, "marp")
   themeDir = path.join(userDataDir, "themes")
   themePath = path.join(themeDir, "studio-theme.css")
+  settingsPath = path.join(userDataDir, "settings.json")
+}
+
+const readSettings = async () => {
+  try {
+    const raw = await fs.promises.readFile(settingsPath, "utf8")
+    return JSON.parse(raw) as { lastNotebook?: string }
+  } catch {
+    return {}
+  }
+}
+
+const writeSettings = async (partial: { lastNotebook?: string }) => {
+  const current = await readSettings()
+  const updated = { ...current, ...partial }
+  await fs.promises.writeFile(settingsPath, JSON.stringify(updated, null, 2))
 }
 
 const sendStatus = (message: string, level: "info" | "success" | "error" = "info") => {
@@ -374,6 +391,14 @@ const createWindow = async () => {
   await ensureDir(marpOutputDir)
   await ensureThemeFile()
 
+  if (!fs.existsSync(resolveConverterScript())) {
+    sendStatus("Missing converter script.", "error")
+  }
+  const pythonPath = resolveBundledPython()
+  if (app.isPackaged && !fs.existsSync(pythonPath)) {
+    sendStatus("Bundled Python not found.", "error")
+  }
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -527,6 +552,20 @@ ipcMain.handle("dialog:openNotebook", async () => {
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return result.filePaths[0]
+})
+
+ipcMain.handle("app:getLastNotebook", async () => {
+  if (!userDataDir) initPaths()
+  const settings = await readSettings()
+  if (settings.lastNotebook && fs.existsSync(settings.lastNotebook)) {
+    return settings.lastNotebook
+  }
+  return null
+})
+
+ipcMain.handle("app:setLastNotebook", async (_event, notebookPath: string | null) => {
+  if (!userDataDir) initPaths()
+  await writeSettings({ lastNotebook: notebookPath ?? undefined })
 })
 
 ipcMain.handle("dialog:openTheme", async () => {

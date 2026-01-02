@@ -8,6 +8,8 @@ declare global {
       openThemeDialog: () => Promise<string | null>
       saveMarkdownDialog: () => Promise<string | null>
       saveThemeDialog: () => Promise<string | null>
+      getLastNotebook: () => Promise<string | null>
+      setLastNotebook: (path: string | null) => Promise<void>
       launchNotebook: (path: string) => Promise<{ url: string }>
       convertNotebook: (path: string) => Promise<{
         pdfUrl: string

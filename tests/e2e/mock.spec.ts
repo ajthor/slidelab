@@ -8,6 +8,7 @@ test("mock: open notebook triggers PDF preview", async () => {
     E2E_THEME_SAVE_PATH: fixtureThemeSave,
   })
   try {
+    await expect(window.getByTestId("landing")).toBeVisible()
     await window.getByTestId("open-notebook").click()
 
     const notebookView = window.getByTestId("notebook-view")
