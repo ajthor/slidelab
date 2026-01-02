@@ -29,6 +29,9 @@ When a notebook is opened (File → Open Notebook), the app converts it to slide
 then runs Marp to generate a PDF preview. Changes to the `.ipynb` file are
 watched and debounced before re-generating the PDF.
 
+JupyterLab launches in simple mode with a slimmed configuration by disabling
+the extension manager, launcher, and file browser extensions.
+
 Notebook conversion uses `resources/scripts/convert_to_slides.py` for the
 Markdown pipeline.
 

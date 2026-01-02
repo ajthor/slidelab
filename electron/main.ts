@@ -16,6 +16,7 @@ let marpOutputDir = ""
 let themeDir = ""
 let themePath = ""
 let settingsPath = ""
+let jupyterConfigDir = ""
 const isMock = process.env.E2E_MOCK === "1"
 
 let mainWindow: BrowserWindow | null = null
@@ -43,6 +44,7 @@ const initPaths = () => {
   themeDir = path.join(userDataDir, "themes")
   themePath = path.join(themeDir, "studio-theme.css")
   settingsPath = path.join(userDataDir, "settings.json")
+  jupyterConfigDir = path.join(userDataDir, "jupyter-config")
 }
 
 const readSettings = async () => {
@@ -70,6 +72,20 @@ const ensureThemeFile = async () => {
     await fs.promises.writeFile(themePath, defaultThemeCss)
   }
   return themePath
+}
+
+const ensureJupyterConfig = async () => {
+  if (!userDataDir) initPaths()
+  const labConfigDir = path.join(jupyterConfigDir, "labconfig")
+  await ensureDir(labConfigDir)
+  const configPath = path.join(labConfigDir, "page_config.json")
+  const config = {
+    disabledExtensions: {
+      "@jupyterlab/extensionmanager-extension": true,
+      "@jupyterlab/launcher-extension": true,
+    },
+  }
+  await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2))
 }
 
 const resolveBundledPython = () => {
@@ -198,6 +214,7 @@ const startJupyter = async (notebookPath: string) => {
     sendStatus("Mock JupyterLab ready.", "success")
     return { url: "data:text/html,<h2>Mock JupyterLab</h2>" }
   }
+  await ensureJupyterConfig()
   if (jupyterProcess) {
     jupyterProcess.kill()
     jupyterProcess = null
@@ -208,15 +225,19 @@ const startJupyter = async (notebookPath: string) => {
   const port = await getFreePort()
   const notebookDir = path.dirname(notebookPath)
   const notebookName = path.basename(notebookPath)
-  const defaultUrl = `/lab/tree/${encodeURIComponent(notebookName)}`
+  const notebookRelPath = path.relative(notebookDir, notebookPath) || notebookName
+  const defaultUrl = `/lab/tree/${encodeURIComponent(notebookRelPath)}`
   const args = [
     "-m",
     "jupyterlab",
     "--no-browser",
     "--ip=127.0.0.1",
     `--port=${port}`,
+    "--ServerApp.open_browser=False",
+    "--LabApp.simple_mode=True",
     "--ServerApp.token=",
     "--ServerApp.password=",
+    `--LabApp.default_url=${defaultUrl}`,
     `--ServerApp.root_dir=${notebookDir}`,
     `--ServerApp.default_url=${defaultUrl}`,
   ]
@@ -225,6 +246,13 @@ const startJupyter = async (notebookPath: string) => {
   jupyterProcess = spawn(python, args, {
     cwd: notebookDir,
     stdio: "inherit",
+    env: {
+      ...process.env,
+      JUPYTER_CONFIG_DIR: jupyterConfigDir,
+      BROWSER: "none",
+      JUPYTER_BROWSER: "none",
+      JUPYTERLAB_BROWSER: "none",
+    },
   })
 
   const url = `http://127.0.0.1:${port}${defaultUrl}`
