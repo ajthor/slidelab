@@ -526,15 +526,6 @@ ipcMain.handle("notebook:watch", async (_event, notebookPath: string) => {
   await startNotebookWatch(notebookPath)
 })
 
-ipcMain.handle("packages:install", async (_event, payload) => {
-  const { notebookPath, packages } = payload as {
-    notebookPath: string
-    packages: string[]
-  }
-  const { pipPath } = await ensureVenv(notebookPath)
-  await runCommand(pipPath, ["install", ...packages])
-})
-
 ipcMain.handle("marp:convert", async (_event, markdownPath: string) => {
   return convertMarkdown(markdownPath)
 })

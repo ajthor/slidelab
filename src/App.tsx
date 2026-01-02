@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Editor from "@monaco-editor/react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +19,6 @@ import {
 import {
   FolderOpen,
   Loader2,
-  PackagePlus,
   RefreshCw,
 } from "lucide-react"
 
@@ -44,10 +39,6 @@ function App() {
   )
   const [statusVisible, setStatusVisible] = useState(false)
   const [statusSticky, setStatusSticky] = useState(false)
-  const [packagesOpen, setPackagesOpen] = useState(false)
-  const [packageInput, setPackageInput] = useState("")
-  const [installedPackages, setInstalledPackages] = useState<string[]>([])
-  const [packageStatus, setPackageStatus] = useState<string | null>(null)
   const [themeContent, setThemeContent] = useState("")
   const themeLoadedRef = useRef(false)
   const themeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -118,14 +109,6 @@ function App() {
     return () => clearTimeout(timer)
   }, [isStartingNotebook, isConverting, statusSticky, statusVisible])
 
-  const packageList = useMemo(
-    () =>
-      installedPackages.length
-        ? installedPackages
-        : ["numpy", "scipy", "matplotlib"],
-    [installedPackages]
-  )
-
   const handleOpenNotebook = async () => {
     if (!window.electronAPI) return
     const selected = await window.electronAPI.openNotebookDialog()
@@ -167,24 +150,6 @@ function App() {
       setPdfVersion(Date.now())
     } finally {
       setIsConverting(false)
-    }
-  }
-
-  const handleInstallPackages = async () => {
-    if (!window.electronAPI || !notebookPath) return
-    const packages = packageInput
-      .split(/[,\s]+/)
-      .map((value) => value.trim())
-      .filter(Boolean)
-    if (!packages.length) return
-    setPackageStatus("Installing packages...")
-    try {
-      await window.electronAPI.installPackages({ notebookPath, packages })
-      setInstalledPackages((prev) => Array.from(new Set([...prev, ...packages])))
-      setPackageInput("")
-      setPackageStatus("Packages installed.")
-    } catch (error) {
-      setPackageStatus("Install failed. Check logs.")
     }
   }
 
@@ -260,16 +225,6 @@ function App() {
               </TooltipTrigger>
               <TooltipContent>Convert notebook to PDF</TooltipContent>
             </Tooltip>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPackagesOpen(true)}
-              disabled={!notebookPath}
-              data-testid="open-packages"
-            >
-              <PackagePlus className="mr-2 h-4 w-4" />
-              Packages
-            </Button>
           </div>
         </header>
 
@@ -368,42 +323,6 @@ function App() {
         </div>
       </div>
 
-      <Sheet open={packagesOpen} onOpenChange={setPackagesOpen}>
-        <SheetContent side="right" className="w-[360px]">
-          <SheetHeader>
-            <SheetTitle>Notebook packages</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6 flex flex-col gap-4">
-            <div className="space-y-2 text-sm text-muted-foreground">
-              Manage the venv for the current notebook. Packages install into an
-              app-managed virtual environment.
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="e.g. pandas scikit-learn"
-                value={packageInput}
-                onChange={(event) => setPackageInput(event.target.value)}
-              />
-              <Button size="sm" onClick={handleInstallPackages}>
-                Install
-              </Button>
-            </div>
-            {packageStatus ? (
-              <div className="text-xs text-muted-foreground">{packageStatus}</div>
-            ) : null}
-            <ScrollArea className="h-[320px] rounded-lg border border-border/70 p-3">
-              <div className="space-y-2">
-                {packageList.map((pkg) => (
-                  <div key={pkg} className="flex items-center justify-between">
-                    <span className="text-sm">{pkg}</span>
-                    <Badge variant="secondary">ready</Badge>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        </SheetContent>
-      </Sheet>
     </TooltipProvider>
   )
 }

@@ -31,9 +31,6 @@ test("mock: rebuild PDF and open packages tray", async () => {
       "Notebook PDF ready."
     )
 
-    await window.getByTestId("open-packages").click()
-    await expect(window.getByText("Notebook packages")).toBeVisible()
-
     await window.getByTestId("toggle-theme").click()
     await expect(window.getByTestId("theme-editor")).toBeVisible()
     await expect(window.getByTestId("load-theme")).toBeVisible()

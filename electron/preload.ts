@@ -14,8 +14,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveTheme: (content: string) => ipcRenderer.invoke("theme:save", content),
   convertMarkdown: (path: string) => ipcRenderer.invoke("marp:convert", path),
   watchMarkdown: (path: string) => ipcRenderer.invoke("marp:watch", path),
-  installPackages: (payload: { notebookPath: string; packages: string[] }) =>
-    ipcRenderer.invoke("packages:install", payload),
   onMarpUpdated: (callback: (payload: { pdfUrl: string }) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: { pdfUrl: string }) =>
       callback(payload)

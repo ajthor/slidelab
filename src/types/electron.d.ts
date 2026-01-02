@@ -17,10 +17,6 @@ declare global {
       saveTheme: (content: string) => Promise<void>
       convertMarkdown: (path: string) => Promise<{ pdfUrl: string }>
       watchMarkdown: (path: string) => Promise<void>
-      installPackages: (payload: {
-        notebookPath: string
-        packages: string[]
-      }) => Promise<void>
       onMarpUpdated: (
         callback: (payload: { pdfUrl: string; markdownPath?: string }) => void
       ) => (() => void) | void
