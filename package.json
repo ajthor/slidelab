@@ -9,6 +9,7 @@
     "dev:electron": "node scripts/prepare-electron.mjs && concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "tsc -b && vite build",
     "build:electron": "node scripts/prepare-electron.mjs && tsc -p tsconfig.electron.json && vite build && electron-builder",
+    "build:electron:ci": "node scripts/prepare-electron.mjs && tsc -p tsconfig.electron.json && vite build && electron-builder --publish never",
     "lint": "eslint .",
     "test:e2e": "node scripts/prepare-electron.mjs && tsc -p tsconfig.electron.json && vite build && playwright test",
     "test:unit": "vitest run",

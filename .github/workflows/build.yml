@@ -45,7 +45,7 @@ jobs:
           PYTHON_STANDALONE_SHA256: ${{ secrets.PYTHON_STANDALONE_SHA256 }}
 
       - name: Build app
-        run: npm run build:electron
+        run: npm run build:electron:ci
         env:
           ELECTRON_BUILDER_PUBLISH: "never"
 
