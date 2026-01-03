@@ -6,7 +6,11 @@ import http from "node:http"
 import net from "node:net"
 import { pathToFileURL } from "node:url"
 import { hashPath } from "./utils/hash"
-import { readSettings, writeSettings } from "./utils/settings"
+import {
+  addRecentNotebook,
+  readSettings,
+  writeSettings,
+} from "./utils/settings"
 import { defaultThemeCss } from "./utils/theme"
 
 const useDevServer = !app.isPackaged && process.env.ELECTRON_USE_DEV_SERVER !== "0"
@@ -451,9 +455,15 @@ const createMenu = (
     hasNotebook: boolean
     hasMarkdown: boolean
     hasTheme: boolean
-  } = { hasNotebook: false, hasMarkdown: false, hasTheme: false }
+    recentNotebooks?: string[]
+  } = { hasNotebook: false, hasMarkdown: false, hasTheme: false, recentNotebooks: [] }
 ) => {
   const isMac = process.platform === "darwin"
+  const recents = (state.recentNotebooks || []).map((entry) => ({
+    label: path.basename(entry),
+    click: () =>
+      mainWindow?.webContents.send("menu:openRecentNotebook", entry),
+  }))
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
       ? [
@@ -481,6 +491,15 @@ const createMenu = (
           accelerator: "CmdOrCtrl+O",
           click: () => mainWindow?.webContents.send("menu:openNotebook"),
         },
+        ...(recents.length
+          ? [
+              { type: "separator" as const },
+              {
+                label: "Open Recent",
+                submenu: recents,
+              },
+            ]
+          : []),
         { type: "separator" as const },
         {
           label: "Load Theme CSS",
@@ -598,6 +617,17 @@ ipcMain.handle("app:getLastNotebook", async () => {
 ipcMain.handle("app:setLastNotebook", async (_event, notebookPath: string | null) => {
   if (!userDataDir) initPaths()
   await saveSettings({ lastNotebook: notebookPath ?? undefined })
+})
+
+ipcMain.handle("app:addRecentNotebook", async (_event, notebookPath: string) => {
+  if (!userDataDir) initPaths()
+  return addRecentNotebook(settingsPath, notebookPath)
+})
+
+ipcMain.handle("app:getRecentNotebooks", async () => {
+  if (!userDataDir) initPaths()
+  const settings = await loadSettings()
+  return settings.recentNotebooks || []
 })
 
 ipcMain.handle("dialog:openTheme", async () => {

@@ -62,7 +62,7 @@ test("mock: rebuild PDF and open packages tray", async () => {
   }
 })
 
-test("mock: restores last notebook on relaunch", async () => {
+test("mock: shows recent notebooks on landing", async () => {
   const first = await launchApp({ E2E_MOCK: "1" })
   try {
     await first.window.getByTestId("open-notebook").click()
@@ -76,8 +76,8 @@ test("mock: restores last notebook on relaunch", async () => {
     { userDataDir: first.userDataDir }
   )
   try {
-    await expect(second.window.getByTestId("landing")).toBeHidden()
-    await expect(second.window.getByTestId("notebook-view")).toBeVisible()
+    await expect(second.window.getByTestId("landing")).toBeVisible()
+    await expect(second.window.getByText(/Recent/i)).toBeVisible()
   } finally {
     await second.app.close()
   }

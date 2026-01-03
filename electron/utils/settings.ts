@@ -2,6 +2,7 @@ import fs from "node:fs"
 
 export type AppSettings = {
   lastNotebook?: string
+  recentNotebooks?: string[]
 }
 
 export const readSettings = async (settingsPath: string): Promise<AppSettings> => {
@@ -20,4 +21,17 @@ export const writeSettings = async (
   const current = await readSettings(settingsPath)
   const updated = { ...current, ...partial }
   await fs.promises.writeFile(settingsPath, JSON.stringify(updated, null, 2))
+}
+
+export const addRecentNotebook = async (
+  settingsPath: string,
+  notebookPath: string,
+  limit = 8
+): Promise<string[]> => {
+  const settings = await readSettings(settingsPath)
+  const current = settings.recentNotebooks || []
+  const next = [notebookPath, ...current.filter((item) => item !== notebookPath)]
+  const trimmed = next.slice(0, limit)
+  await writeSettings(settingsPath, { recentNotebooks: trimmed })
+  return trimmed
 }

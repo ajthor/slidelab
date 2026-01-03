@@ -54,6 +54,7 @@ function App() {
     string | null
   >(null)
   const openNotebookRef = useRef<Promise<void> | null>(null)
+  const [recentNotebooks, setRecentNotebooks] = useState<string[]>([])
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -87,6 +88,15 @@ function App() {
       }
     }
     void loadTheme()
+  }, [])
+
+  useEffect(() => {
+    if (!window.electronAPI) return
+    const loadRecents = async () => {
+      const recents = await window.electronAPI.getRecentNotebooks()
+      setRecentNotebooks(recents)
+    }
+    void loadRecents()
   }, [])
 
   useEffect(() => {
@@ -230,6 +240,8 @@ function App() {
     if (!selected) return
     try {
       await openNotebook(selected)
+      const recents = await window.electronAPI.addRecentNotebook(selected)
+      setRecentNotebooks(recents)
     } catch {
       setStatusMessage("Failed to open notebook.")
     }
@@ -312,25 +324,11 @@ function App() {
 
   useEffect(() => {
     if (!window.electronAPI) return
-    const restoreLastNotebook = async () => {
-      const last = await window.electronAPI.getLastNotebook()
-      if (!last) return
-      setStatusMessage("Restoring last notebook...")
-      try {
-        await openNotebook(last)
-      } catch {
-        setStatusMessage("Failed to restore last notebook.")
-      }
-    }
-    void restoreLastNotebook()
-  }, [openNotebook])
-
-  useEffect(() => {
-    if (!window.electronAPI) return
     window.electronAPI.setMenuState({
       hasNotebook: Boolean(notebookPath),
       hasMarkdown: Boolean(markdownPath || generatedMarkdownPath),
       hasTheme: themeLoaded,
+      recentNotebooks,
     })
     const removeOpen = window.electronAPI.onMenuOpenNotebook(handleOpenNotebook)
     const removeRebuild = window.electronAPI.onMenuRebuildPdf(handleConvert)
@@ -338,12 +336,22 @@ function App() {
     const removeSaveTheme = window.electronAPI.onMenuSaveTheme(handleSaveThemeAs)
     const removeSaveMarkdown =
       window.electronAPI.onMenuSaveMarkdown(handleSaveMarkdownAs)
+    const removeRecent = window.electronAPI.onMenuOpenRecentNotebook(
+      async (path) => {
+        try {
+          await openNotebook(path)
+        } catch {
+          setStatusMessage("Failed to open recent notebook.")
+        }
+      }
+    )
     return () => {
       removeOpen?.()
       removeRebuild?.()
       removeLoadTheme?.()
       removeSaveTheme?.()
       removeSaveMarkdown?.()
+      removeRecent?.()
     }
   }, [
     generatedMarkdownPath,
@@ -354,6 +362,8 @@ function App() {
     handleSaveThemeAs,
     markdownPath,
     notebookPath,
+    openNotebook,
+    recentNotebooks,
     themeLoaded,
   ])
 
@@ -423,25 +433,45 @@ function App() {
 
         {!notebookPath ? (
           <div className="flex flex-1 items-center justify-center bg-muted/10" data-testid="landing">
-            <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <div className="flex max-w-md flex-col gap-4 text-center">
               <div className="text-lg font-semibold">Open a notebook</div>
               <div className="text-sm text-muted-foreground">
-                Use File → Open Notebook to start editing and previewing slides.
+                Use File → Open Notebook or pick a recent file below.
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenNotebook}
-                disabled={isStartingNotebook}
-                data-testid="open-notebook"
-              >
-                {isStartingNotebook ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <FolderOpen className="mr-2 h-4 w-4" />
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenNotebook}
+                  disabled={isStartingNotebook}
+                  data-testid="open-notebook"
+                >
+                  {isStartingNotebook ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                  )}
+                  Open Notebook
+                </Button>
+                {recentNotebooks.length > 0 && (
+                  <div className="rounded-lg border border-border/60 bg-background/70 p-3 text-left text-xs text-muted-foreground">
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Recent
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {recentNotebooks.map((entry) => (
+                        <button
+                          key={entry}
+                          className="app-no-drag truncate text-left text-sm text-foreground hover:underline"
+                          onClick={() => openNotebook(entry)}
+                        >
+                          {entry}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                Open Notebook
-              </Button>
+              </div>
             </div>
           </div>
         ) : (

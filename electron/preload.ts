@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getLastNotebook: () => ipcRenderer.invoke("app:getLastNotebook"),
   setLastNotebook: (path: string | null) =>
     ipcRenderer.invoke("app:setLastNotebook", path),
+  addRecentNotebook: (path: string) =>
+    ipcRenderer.invoke("app:addRecentNotebook", path),
+  getRecentNotebooks: () => ipcRenderer.invoke("app:getRecentNotebooks"),
   launchNotebook: (path: string) =>
     ipcRenderer.invoke("jupyter:openNotebook", path),
   convertNotebook: (path: string) =>
@@ -63,9 +66,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("menu:saveMarkdown", listener)
     return () => ipcRenderer.removeListener("menu:saveMarkdown", listener)
   },
+  onMenuOpenRecentNotebook: (callback: (path: string) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      path: string
+    ) => callback(path)
+    ipcRenderer.on("menu:openRecentNotebook", listener)
+    return () => ipcRenderer.removeListener("menu:openRecentNotebook", listener)
+  },
   setMenuState: (payload: {
     hasNotebook: boolean
     hasMarkdown: boolean
     hasTheme: boolean
+    recentNotebooks?: string[]
   }) => ipcRenderer.invoke("menu:setState", payload),
 })

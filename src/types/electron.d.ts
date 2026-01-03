@@ -10,6 +10,8 @@ declare global {
       saveThemeDialog: () => Promise<string | null>
       getLastNotebook: () => Promise<string | null>
       setLastNotebook: (path: string | null) => Promise<void>
+      addRecentNotebook: (path: string) => Promise<string[]>
+      getRecentNotebooks: () => Promise<string[]>
       launchNotebook: (path: string) => Promise<{ url: string }>
       convertNotebook: (path: string) => Promise<{
         pdfUrl: string
@@ -40,10 +42,12 @@ declare global {
       onMenuLoadTheme: (callback: () => void) => (() => void) | void
       onMenuSaveTheme: (callback: () => void) => (() => void) | void
       onMenuSaveMarkdown: (callback: () => void) => (() => void) | void
+      onMenuOpenRecentNotebook: (callback: (path: string) => void) => (() => void) | void
       setMenuState: (payload: {
         hasNotebook: boolean
         hasMarkdown: boolean
         hasTheme: boolean
+        recentNotebooks?: string[]
       }) => Promise<void>
     }
   }
