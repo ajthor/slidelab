@@ -13,6 +13,7 @@ dist-ssr
 dist-electron
 *.local
 resources/python
+resources/puppeteer
 
 # Editor directories and files
 .vscode/*

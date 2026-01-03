@@ -574,18 +574,26 @@ function App() {
               <ResizableHandle withHandle className="w-2 bg-border/80" />
               <ResizablePanel defaultSize={40} minSize={25}>
                 <div className="flex h-full flex-col bg-muted/20">
-                  {pdfUrl ? (
-                    <webview
-                      className="h-full w-full"
-                      src={`${pdfUrl}?v=${pdfVersion}`}
-                      allowpopups="true"
-                      data-testid="pdf-view"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                      {EMPTY_PDF_TITLE}
-                    </div>
-                  )}
+                {pdfUrl ? (
+                  <webview
+                    className="h-full w-full"
+                    src={`${pdfUrl}?v=${pdfVersion}`}
+                    allowpopups="true"
+                    data-testid="pdf-view"
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                    {isConverting && (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    )}
+                    <div>{EMPTY_PDF_TITLE}</div>
+                    {isConverting && (
+                      <div className="text-xs text-muted-foreground">
+                        Rendering PDF preview…
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>

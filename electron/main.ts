@@ -15,6 +15,10 @@ import { defaultThemeCss } from "./utils/theme"
 
 const useDevServer = !app.isPackaged && process.env.ELECTRON_USE_DEV_SERVER !== "0"
 const appRoot = app.getAppPath()
+const APP_NAME = "SlideLab"
+process.title = APP_NAME
+app.setName?.(APP_NAME)
+app.name = APP_NAME
 let userDataDir = ""
 let venvRoot = ""
 let marpOutputDir = ""
@@ -99,21 +103,132 @@ const resolveBundledPython = () => {
   return "python3"
 }
 
-const resolveMarpBin = () => {
+const resolveMarpCommand = (): {
+  command: string
+  argsPrefix: string[]
+  env?: NodeJS.ProcessEnv
+} => {
+  const unpackedMarpBin = path.join(
+    process.resourcesPath,
+    "app.asar.unpacked",
+    "node_modules",
+    ".bin",
+    "marp"
+  )
+  const unpackedMarpScript = path.join(
+    process.resourcesPath,
+    "app.asar.unpacked",
+    "node_modules",
+    "@marp-team",
+    "marp-cli",
+    "marp-cli.js"
+  )
+  const devMarpBin = path.join(appRoot, "node_modules", ".bin", "marp")
+  const devMarpScript = path.join(
+    appRoot,
+    "node_modules",
+    "@marp-team",
+    "marp-cli",
+    "marp-cli.js"
+  )
+
   if (app.isPackaged) {
-    return path.join(
-      process.resourcesPath,
-      "app.asar.unpacked",
-      "node_modules",
-      ".bin",
-      "marp"
-    )
+    if (fs.existsSync(unpackedMarpBin)) {
+      return { command: unpackedMarpBin, argsPrefix: [] }
+    }
+    if (fs.existsSync(unpackedMarpScript)) {
+      return {
+        command: process.execPath,
+        argsPrefix: [unpackedMarpScript],
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      }
+    }
   }
-  return path.join(appRoot, "node_modules", ".bin", "marp")
+
+  if (fs.existsSync(devMarpBin)) {
+    return { command: devMarpBin, argsPrefix: [] }
+  }
+  return { command: "node", argsPrefix: [devMarpScript] }
 }
 
-const resolveConverterScript = () =>
-  path.join(appRoot, "resources", "scripts", "convert_to_slides.py")
+const findBundledChromium = (rootDir: string) => {
+  const stack: Array<{ dir: string; depth: number }> = [
+    { dir: rootDir, depth: 0 },
+  ]
+  const maxDepth = 7
+
+  while (stack.length) {
+    const current = stack.pop()
+    if (!current) continue
+    const { dir, depth } = current
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (entry.name.endsWith(".app")) {
+          const appRoot = path.join(dir, entry.name)
+          const macosDir = path.join(appRoot, "Contents", "MacOS")
+          const chromiumBinary = path.join(macosDir, "Chromium")
+          const chromeTestingBinary = path.join(
+            macosDir,
+            "Google Chrome for Testing"
+          )
+          if (fs.existsSync(chromiumBinary)) {
+            return chromiumBinary
+          }
+          if (fs.existsSync(chromeTestingBinary)) {
+            return chromeTestingBinary
+          }
+        }
+        if (depth < maxDepth) {
+          stack.push({ dir: path.join(dir, entry.name), depth: depth + 1 })
+        }
+      } else if (entry.isFile() && entry.name === "Chromium") {
+        return path.join(dir, entry.name)
+      }
+    }
+  }
+
+  return null
+}
+
+const resolveBrowserPath = () => {
+  if (process.platform !== "darwin") return null
+  const bundledRoot = app.isPackaged
+    ? path.join(process.resourcesPath, "puppeteer")
+    : path.join(appRoot, "resources", "puppeteer")
+  const bundled = findBundledChromium(bundledRoot)
+  if (bundled) return bundled
+  const candidates = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+  ]
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
+}
+
+const resolveConverterScript = () => {
+  if (app.isPackaged) {
+    const candidates = [
+      path.join(process.resourcesPath, "scripts", "convert_to_slides.mjs"),
+      path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "resources",
+        "scripts",
+        "convert_to_slides.mjs"
+      ),
+    ]
+    const found = candidates.find((candidate) => fs.existsSync(candidate))
+    if (found) return found
+  }
+  return path.join(appRoot, "resources", "scripts", "convert_to_slides.mjs")
+}
 
 const resolveAppIcon = () =>
   app.isPackaged
@@ -126,11 +241,17 @@ const resolveFixturePath = (fileName: string) =>
 const runCommand = (
   command: string,
   args: string[],
-  options: { cwd?: string; timeoutMs?: number; label?: string } = {}
+  options: {
+    cwd?: string
+    timeoutMs?: number
+    label?: string
+    env?: NodeJS.ProcessEnv
+  } = {}
 ) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
+      env: options.env,
       stdio: ["ignore", "pipe", "pipe"],
     })
     let stderr = ""
@@ -298,22 +419,31 @@ const convertMarkdown = async (markdownPath: string) => {
   await ensureThemeFile()
   await ensureDir(marpOutputDir)
   const outputPath = path.join(marpOutputDir, `${hashPath(markdownPath)}.pdf`)
-  const marpBin = resolveMarpBin()
+  const marpCommand = resolveMarpCommand()
+  const browserPath = resolveBrowserPath()
   sendStatus("Rendering Marp PDF...", "info")
   await runCommand(
-    marpBin,
+    marpCommand.command,
     [
+      ...marpCommand.argsPrefix,
       "--pdf",
       "--allow-local-files",
       "--theme",
       themePath,
+      ...(browserPath ? ["--browser-path", browserPath] : []),
       "--browser-timeout",
       "60",
       "-o",
       outputPath,
       markdownPath,
     ],
-    { label: "marp", timeoutMs: 2 * 60 * 1000 }
+    {
+      label: "marp",
+      timeoutMs: 2 * 60 * 1000,
+      env: browserPath
+        ? { ...marpCommand.env, PUPPETEER_EXECUTABLE_PATH: browserPath }
+        : marpCommand.env,
+    }
   )
   const pdfUrl = pathToFileURL(outputPath).toString()
   sendStatus("Marp PDF ready.", "success")
@@ -325,18 +455,28 @@ const convertNotebookToMarkdown = async (notebookPath: string) => {
     return resolveFixturePath("sample.md")
   }
   await ensureDir(marpOutputDir)
-  const { venvDir } = await ensureVenv(notebookPath)
-  const python = path.join(venvDir, "bin", "python")
   const outputBase = `notebook-${hashPath(notebookPath)}`
   const converterScript = resolveConverterScript()
+  if (!fs.existsSync(converterScript)) {
+    throw new Error(`convert_to_slides.mjs not found at ${converterScript}`)
+  }
+  const outputPath = path.join(marpOutputDir, `${outputBase}.md`)
+  const command = app.isPackaged ? process.execPath : "node"
+  const env = app.isPackaged
+    ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+    : process.env
   sendStatus("Converting notebook to slides markdown...", "info")
   await runCommand(
-    python,
-    [converterScript, notebookPath, path.join(marpOutputDir, `${outputBase}.md`)],
-    { label: "convert_to_slides.py", timeoutMs: 2 * 60 * 1000 }
+    command,
+    [converterScript, notebookPath, outputPath],
+    {
+      label: "convert_to_slides.mjs",
+      timeoutMs: 2 * 60 * 1000,
+      env,
+    }
   )
   sendStatus("Notebook converted to Markdown.", "success")
-  return path.join(marpOutputDir, `${outputBase}.md`)
+  return outputPath
 }
 
 const convertNotebookPipeline = async (notebookPath: string) => {
@@ -433,6 +573,7 @@ const createWindow = async () => {
     width: 1400,
     height: 900,
     titleBarStyle: "hiddenInset",
+    title: APP_NAME,
     icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(appRoot, "dist-electron", "preload.js"),
@@ -468,7 +609,7 @@ const createMenu = (
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: APP_NAME,
             submenu: [
               { role: "about" as const },
               { type: "separator" as const },
@@ -566,13 +707,18 @@ const createMenu = (
 }
 
 app.whenReady().then(async () => {
+  app.setName?.(APP_NAME)
+  app.name = APP_NAME
+  app.setAboutPanelOptions({
+    applicationName: APP_NAME,
+  })
   initPaths()
   await createWindow()
   createMenu()
   if (process.platform === "darwin") {
     const dockIcon = resolveAppIcon()
     if (dockIcon && fs.existsSync(dockIcon)) {
-      app.dock.setIcon(dockIcon)
+      app.dock?.setIcon(dockIcon)
     }
   }
 

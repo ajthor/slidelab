@@ -9,7 +9,7 @@ jobs:
   build-macos:
     runs-on: macos-latest
     env:
-      PYTHON_STANDALONE_URL: "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-macos-universal2-install_only.tar.gz"
+      PYTHON_STANDALONE_URL: "https://github.com/astral-sh/python-build-standalone/releases/download/20251217/cpython-3.10.19+20251217-aarch64-apple-darwin-install_only.tar.gz"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slides-application-macos
+          name: slidelab-macos
           path: |
             dist/*.dmg
             dist/*.zip

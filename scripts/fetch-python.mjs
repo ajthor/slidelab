@@ -7,10 +7,14 @@ const rootDir = path.resolve(new URL(".", import.meta.url).pathname, "..")
 const resourcesDir = path.join(rootDir, "resources")
 const pythonDir = path.join(resourcesDir, "python")
 
-const defaultUrl =
-  "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-macos-universal2-install_only.tar.gz"
-const archiveUrl =
-  process.env.PYTHON_STANDALONE_URL || defaultUrl
+const defaultUrlsByArch = {
+  arm64:
+    "https://github.com/astral-sh/python-build-standalone/releases/download/20251217/cpython-3.10.19+20251217-aarch64-apple-darwin-install_only.tar.gz",
+  x64:
+    "https://github.com/astral-sh/python-build-standalone/releases/download/20251217/cpython-3.10.19+20251217-x86_64-apple-darwin-install_only.tar.gz",
+}
+const defaultUrl = defaultUrlsByArch[process.arch] || defaultUrlsByArch.arm64
+const archiveUrl = process.env.PYTHON_STANDALONE_URL || defaultUrl
 const fallbackUrls = process.env.PYTHON_STANDALONE_FALLBACKS
   ? process.env.PYTHON_STANDALONE_FALLBACKS.split(",").map((url) => url.trim())
   : []
@@ -60,12 +64,14 @@ const fetchLatestReleaseUrl = () => {
   try {
     const response = execFileSync("curl", [
       "-sL",
-      "https://api.github.com/repos/indygreg/python-build-standalone/releases/latest",
+      "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest",
     ])
     const data = JSON.parse(response.toString())
     const assets = Array.isArray(data.assets) ? data.assets : []
-    const match = assets.find((asset) =>
-      asset.name?.includes("macos-universal2-install_only.tar.gz")
+    const archSuffix = process.arch === "x64" ? "x86_64" : "aarch64"
+    const match = assets.find(
+      (asset) =>
+        asset.name?.includes(`${archSuffix}-apple-darwin-install_only.tar.gz`)
     )
     return match?.browser_download_url || null
   } catch (error) {

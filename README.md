@@ -1,4 +1,4 @@
-# Slides Application
+# SlideLab
 
 Version: 0.1.0
 
@@ -44,7 +44,7 @@ watched and debounced before re-generating the PDF.
 JupyterLab launches in simple mode with a slimmed configuration by disabling
 the extension manager, launcher, and file browser extensions.
 
-Notebook conversion uses `resources/scripts/convert_to_slides.py` for the
+Notebook conversion uses `resources/scripts/convert_to_slides.mjs` for the
 Markdown pipeline.
 
 ## Theme editor
