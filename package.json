@@ -8,14 +8,13 @@
     "dev": "vite",
     "dev:electron": "node scripts/prepare-electron.mjs && concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "tsc -b && vite build",
-    "build:electron": "node scripts/prepare-electron.mjs && node scripts/prepare-puppeteer.mjs && tsc -p tsconfig.electron.json && vite build && electron-builder",
+    "build:electron": "node scripts/prepare-electron.mjs && tsc -p tsconfig.electron.json && vite build && electron-builder",
     "lint": "eslint .",
     "test:e2e": "node scripts/prepare-electron.mjs && tsc -p tsconfig.electron.json && vite build && playwright test",
     "test:unit": "vitest run",
     "test": "npm run test:unit && npm run test:e2e",
     "setup:python": "node scripts/fetch-python.mjs",
-    "preview": "vite preview",
-    "setup:puppeteer": "node scripts/prepare-puppeteer.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@marp-team/marp-cli": "^4.2.0",
@@ -30,7 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
-    "puppeteer": "^24.34.0",
+    "puppeteer-core": "^24.34.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-resizable-panels": "^4.2.0",
@@ -83,15 +82,10 @@
       {
         "from": "resources/scripts",
         "to": "scripts"
-      },
-      {
-        "from": "resources/puppeteer",
-        "to": "puppeteer"
       }
     ],
     "asarUnpack": [
-      "node_modules/.bin/**",
-      "node_modules/@marp-team/**"
+      "node_modules/**"
     ]
   }
 }

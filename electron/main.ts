@@ -151,58 +151,8 @@ const resolveMarpCommand = (): {
   return { command: "node", argsPrefix: [devMarpScript] }
 }
 
-const findBundledChromium = (rootDir: string) => {
-  const stack: Array<{ dir: string; depth: number }> = [
-    { dir: rootDir, depth: 0 },
-  ]
-  const maxDepth = 7
-
-  while (stack.length) {
-    const current = stack.pop()
-    if (!current) continue
-    const { dir, depth } = current
-    let entries: fs.Dirent[]
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name.endsWith(".app")) {
-          const appRoot = path.join(dir, entry.name)
-          const macosDir = path.join(appRoot, "Contents", "MacOS")
-          const chromiumBinary = path.join(macosDir, "Chromium")
-          const chromeTestingBinary = path.join(
-            macosDir,
-            "Google Chrome for Testing"
-          )
-          if (fs.existsSync(chromiumBinary)) {
-            return chromiumBinary
-          }
-          if (fs.existsSync(chromeTestingBinary)) {
-            return chromeTestingBinary
-          }
-        }
-        if (depth < maxDepth) {
-          stack.push({ dir: path.join(dir, entry.name), depth: depth + 1 })
-        }
-      } else if (entry.isFile() && entry.name === "Chromium") {
-        return path.join(dir, entry.name)
-      }
-    }
-  }
-
-  return null
-}
-
 const resolveBrowserPath = () => {
   if (process.platform !== "darwin") return null
-  const bundledRoot = app.isPackaged
-    ? path.join(process.resourcesPath, "puppeteer")
-    : path.join(appRoot, "resources", "puppeteer")
-  const bundled = findBundledChromium(bundledRoot)
-  if (bundled) return bundled
   const candidates = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",

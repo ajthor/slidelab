@@ -600,9 +600,9 @@ function App() {
           </div>
         )}
 
-        <div className="pointer-events-none fixed bottom-4 right-4 z-50">
+        <div className="fixed bottom-4 right-4 z-50">
           <div
-            className={`flex items-center gap-2 rounded-full border border-border/70 bg-background/95 px-4 py-2 text-xs shadow-lg backdrop-blur transition-all ${
+            className={`flex max-w-sm items-center gap-2 rounded-md border border-border/70 bg-background/95 px-4 py-2 text-xs shadow-lg backdrop-blur transition-all ${
               statusVisible
                 ? "translate-y-0 opacity-100"
                 : "translate-y-3 opacity-0"
@@ -614,11 +614,13 @@ function App() {
             )}
             <span
               className={
-                statusLevel === "error"
-                  ? "text-destructive"
-                  : statusLevel === "success"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
+                `select-text break-words ${
+                  statusLevel === "error"
+                    ? "text-destructive"
+                    : statusLevel === "success"
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                }`
               }
             >
               {statusMessage}

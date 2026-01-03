@@ -2,8 +2,15 @@ name: Build
 
 on:
   workflow_dispatch:
-  push: {}
+  push:
+    branches:
+      - "**"
+    tags:
+      - "*"
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   build-macos:
@@ -39,6 +46,8 @@ jobs:
 
       - name: Build app
         run: npm run build:electron
+        env:
+          ELECTRON_BUILDER_PUBLISH: "never"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 dist-electron
+test-results
+playwright-report
+coverage
+.electron-builder
+out
 *.local
 resources/python
 resources/puppeteer
