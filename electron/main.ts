@@ -111,6 +111,11 @@ const resolveMarpBin = () => {
 const resolveConverterScript = () =>
   path.join(appRoot, "resources", "scripts", "convert_to_slides.py")
 
+const resolveAppIcon = () =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, "resources", "icon.icns")
+    : path.join(appRoot, "resources", "icon.png")
+
 const resolveFixturePath = (fileName: string) =>
   path.join(appRoot, "resources", "fixtures", fileName)
 
@@ -424,6 +429,7 @@ const createWindow = async () => {
     width: 1400,
     height: 900,
     titleBarStyle: "hiddenInset",
+    icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(appRoot, "dist-electron", "preload.js"),
       contextIsolation: true,
@@ -544,6 +550,12 @@ app.whenReady().then(async () => {
   initPaths()
   await createWindow()
   createMenu()
+  if (process.platform === "darwin") {
+    const dockIcon = resolveAppIcon()
+    if (dockIcon && fs.existsSync(dockIcon)) {
+      app.dock.setIcon(dockIcon)
+    }
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

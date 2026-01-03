@@ -64,6 +64,7 @@
   "build": {
     "appId": "com.slidesapplication.app",
     "productName": "Slides Application",
+    "icon": "resources/icon.png",
     "files": [
       "dist/**",
       "dist-electron/**",
@@ -73,7 +74,8 @@
     "mac": {
       "target": [
         "dmg"
-      ]
+      ],
+      "icon": "resources/icon.icns"
     },
     "asarUnpack": [
       "node_modules/.bin/**",

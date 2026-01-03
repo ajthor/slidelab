@@ -32,6 +32,9 @@ PYTHON_STANDALONE_SHA256="<sha256>" npm run setup:python
 PYTHON_STANDALONE_FALLBACKS="https://mirror1/python.tar.gz,https://mirror2/python.tar.gz" npm run setup:python
 ```
 
+If the default URL fails, the script will attempt to resolve the latest
+Python build from the upstream GitHub release API.
+
 ## Notebook to Marp
 
 When a notebook is opened (File → Open Notebook), the app converts it to slides-friendly Markdown and
@@ -71,6 +74,8 @@ npm run build:electron
 
 Create a git tag like `0.1.0` (or `v0.1.0`) to trigger the GitHub Action
 release workflow and attach the macOS build artifacts.
+
+CI runs on every push and pull request; tagged builds are published as Releases.
 
 ## Tests
 

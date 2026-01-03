@@ -56,9 +56,28 @@ if (fs.existsSync(archivePath)) {
   }
 }
 
+const fetchLatestReleaseUrl = () => {
+  try {
+    const response = execFileSync("curl", [
+      "-sL",
+      "https://api.github.com/repos/indygreg/python-build-standalone/releases/latest",
+    ])
+    const data = JSON.parse(response.toString())
+    const assets = Array.isArray(data.assets) ? data.assets : []
+    const match = assets.find((asset) =>
+      asset.name?.includes("macos-universal2-install_only.tar.gz")
+    )
+    return match?.browser_download_url || null
+  } catch (error) {
+    return null
+  }
+}
+
 if (!fs.existsSync(archivePath)) {
   let downloaded = false
-  for (const url of archiveUrls) {
+  const latestUrl = fetchLatestReleaseUrl()
+  const urlsToTry = [...archiveUrls, latestUrl].filter(Boolean)
+  for (const url of urlsToTry) {
     if (!url) continue
     console.log(`Downloading Python from ${url}`)
     try {
