@@ -1,14 +1,16 @@
-name: Build
+name: Release
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - "**"
-  pull_request:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
 
 jobs:
-  build-macos:
+  release-macos:
     runs-on: macos-latest
     env:
       PYTHON_STANDALONE_URL: "https://github.com/astral-sh/python-build-standalone/releases/download/20251217/cpython-3.10.19+20251217-aarch64-apple-darwin-install_only.tar.gz"
@@ -41,12 +43,12 @@ jobs:
 
       - name: Build app
         run: npm run build:electron:ci
-        env:
-          ELECTRON_BUILDER_PUBLISH: "never"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: slidelab-macos
-          path: |
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          files: |
             dist/*.dmg
+            dist/*.blockmap
