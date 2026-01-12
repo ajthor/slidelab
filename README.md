@@ -1,6 +1,6 @@
 # SlideLab
 
-Version: 0.1.0
+Version: 0.1.1
 
 Electron + React/Vite desktop app for JupyterLab notebooks alongside Marp PDF preview.
 
@@ -72,7 +72,7 @@ npm run build:electron
 
 ## Releases
 
-Create a git tag like `0.1.0` (or `v0.1.0`) to trigger the GitHub Action
+Create a git tag like `0.1.1` (or `v0.1.1`) to trigger the GitHub Action
 release workflow and attach the macOS build artifacts.
 
 CI runs on every push and pull request; tagged builds are published as Releases.

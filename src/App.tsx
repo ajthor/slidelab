@@ -287,11 +287,7 @@ function App() {
         filePath: targetPath,
         content: markdownContent,
       })
-      setMarkdownPath(targetPath)
       setMarkdownOverride(true)
-      const response = await window.electronAPI.convertMarkdown(targetPath)
-      setPdfUrl(response.pdfUrl)
-      setPdfVersion(Date.now())
       window.electronAPI.setMenuState({
         hasNotebook: Boolean(notebookPath),
         hasMarkdown: true,
