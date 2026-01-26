@@ -59,16 +59,18 @@ function App() {
   useEffect(() => {
     if (!window.electronAPI) return
     const remove = window.electronAPI.onMarpUpdated((payload) => {
+      setIsConverting(false)
+      if (payload.markdownPath) {
+        setMarkdownOverride(false)
+        setGeneratedMarkdownPath(payload.markdownPath)
+        setMarkdownPath(payload.markdownPath)
+        setPdfUrl(payload.pdfUrl)
+        setPdfVersion(Date.now())
+        return
+      }
       if (!markdownOverride) {
         setPdfUrl(payload.pdfUrl)
         setPdfVersion(Date.now())
-      }
-      setIsConverting(false)
-      if (payload.markdownPath) {
-        setGeneratedMarkdownPath(payload.markdownPath)
-        if (!markdownOverride) {
-          setMarkdownPath(payload.markdownPath)
-        }
       }
     })
     return () => remove?.()
@@ -202,10 +204,9 @@ function App() {
           const marpResponse = await window.electronAPI.convertNotebook(path)
           setPdfUrl(marpResponse.pdfUrl)
           setPdfVersion(Date.now())
+          setMarkdownOverride(false)
           setGeneratedMarkdownPath(marpResponse.markdownPath)
-          if (!markdownOverride) {
-            setMarkdownPath(marpResponse.markdownPath)
-          }
+          setMarkdownPath(marpResponse.markdownPath)
         } catch (error) {
           if (
             error instanceof Error &&
@@ -288,6 +289,7 @@ function App() {
         content: markdownContent,
       })
       setMarkdownOverride(true)
+      setMarkdownPath(targetPath)
       window.electronAPI.setMenuState({
         hasNotebook: Boolean(notebookPath),
         hasMarkdown: true,
@@ -305,6 +307,9 @@ function App() {
       const response = await window.electronAPI.convertNotebook(notebookPath)
       setPdfUrl(response.pdfUrl)
       setPdfVersion(Date.now())
+      setMarkdownOverride(false)
+      setGeneratedMarkdownPath(response.markdownPath)
+      setMarkdownPath(response.markdownPath)
     } catch (error) {
       if (
         error instanceof Error &&

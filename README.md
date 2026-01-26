@@ -70,6 +70,16 @@ whenever the selected markdown file changes (debounced) or when you click Conver
 npm run build:electron
 ```
 
+## macOS Gatekeeper
+
+After moving `SlideLab.app` to `/Applications`, run:
+
+```bash
+xattr -cr /Applications/SlideLab.app
+```
+
+This clears quarantine attributes so the app can launch.
+
 ## Releases
 
 Create a git tag like `0.1.1` (or `v0.1.1`) to trigger the GitHub Action
