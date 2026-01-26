@@ -1,6 +1,6 @@
 # SlideLab
 
-Version: 0.1.1
+Version: 0.1.2
 
 Electron + React/Vite desktop app for JupyterLab notebooks alongside Marp PDF preview.
 
