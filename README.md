@@ -2,75 +2,16 @@
 
 Version: 0.1.2
 
-Electron + React/Vite desktop app for JupyterLab notebooks alongside Marp PDF preview.
+Electron app for turning Jupyter notebooks into Marp slides with a live PDF preview.
 
-## Development
+## Getting started
 
-```bash
-npm install
-npm run dev:electron
-```
+1. Open a notebook (File → Open Notebook).
+2. Edit slides in the Markdown panel.
+3. Use “Save as…” if you want a separate markdown file that won’t be overwritten by notebook re-renders.
+4. Load a custom theme via the Theme CSS panel (Load CSS).
 
-## Bundled Python
-
-The app expects a standalone Python runtime under `resources/python`.
-
-```bash
-npm run setup:python
-```
-
-You can override the download URL:
-
-```bash
-PYTHON_STANDALONE_URL="https://example.com/python.tar.gz" npm run setup:python
-```
-
-Optional checks and fallbacks:
-
-```bash
-PYTHON_STANDALONE_SHA256="<sha256>" npm run setup:python
-PYTHON_STANDALONE_FALLBACKS="https://mirror1/python.tar.gz,https://mirror2/python.tar.gz" npm run setup:python
-```
-
-If the default URL fails, the script will attempt to resolve the latest
-Python build from the upstream GitHub release API.
-
-## Notebook to Marp
-
-When a notebook is opened (File → Open Notebook), the app converts it to slides-friendly Markdown and
-then runs Marp to generate a PDF preview. Changes to the `.ipynb` file are
-watched and debounced before re-generating the PDF.
-
-JupyterLab launches in simple mode with a slimmed configuration by disabling
-the extension manager, launcher, and file browser extensions.
-
-Notebook conversion uses `resources/scripts/convert_to_slides.mjs` for the
-Markdown pipeline.
-
-## Theme editor
-
-Use the top bar toggle to switch the left panel to a CSS editor. The stylesheet
-is saved to the app's theme file and automatically applied to Marp conversions.
-Use "Load CSS" to import a theme file from disk and "Save as..." to export a copy.
-
-## Markdown editor
-
-The left panel can switch to a Markdown editor for the generated slides output.
-Edits auto-save and re-run the Marp conversion. Use “Save as…” to persist a
-separate Markdown file so notebook re-renders do not overwrite your edits.
-
-## Marp (standalone)
-
-Marp CLI is bundled via `@marp-team/marp-cli`. It runs locally to generate a PDF
-whenever the selected markdown file changes (debounced) or when you click Convert.
-
-## Build
-
-```bash
-npm run build:electron
-```
-
-## macOS Gatekeeper
+## Gatekeeper (macOS)
 
 After moving `SlideLab.app` to `/Applications`, run:
 
@@ -80,31 +21,6 @@ xattr -cr /Applications/SlideLab.app
 
 This clears quarantine attributes so the app can launch.
 
-## Releases
+## Support
 
-Create a git tag like `0.1.1` (or `v0.1.1`) to trigger the GitHub Action
-release workflow and attach the macOS build artifacts.
-
-CI runs on every push and pull request; tagged builds are published as Releases.
-
-## Tests
-
-```bash
-npm run test:e2e
-```
-
-The E2E tests run Electron in a mock mode (no Python/Jupyter/Marp) using
-fixtures in `resources/fixtures`.
-
-The real E2E test will run if `python3` is available (or `PYTHON_PATH` is set),
-and uses the fixture notebook to exercise the full conversion pipeline.
-
-```bash
-npm run test:unit
-```
-
-Run both suites with:
-
-```bash
-npm test
-```
+If the preview isn’t updating, click “Rebuild PDF” in the toolbar.
